@@ -993,7 +993,12 @@ async function startLiveMic() {
     });
     liveStream
       .getAudioTracks()
-      .forEach((track) => livePeer.addTrack(track, liveStream));
+      .forEach((track) =>
+        livePeer.addTransceiver(track, {
+          direction: "sendonly",
+          streams: [liveStream],
+        })
+      );
     liveDataChannel = livePeer.createDataChannel("oai-events");
     liveDataChannel.addEventListener("open", () => {
       lastTranscriptAt = Date.now();
@@ -1165,11 +1170,7 @@ function handleRealtimeMessage(message) {
 }
 
 function isTranscriptionEvent(event) {
-  return (
-    event.type?.startsWith("conversation.item.input_audio_transcription.") ||
-    event.type?.includes("input_audio_transcription") ||
-    event.type?.includes("transcription")
-  );
+  return event.type?.startsWith("conversation.item.input_audio_transcription.");
 }
 
 function extractTranscriptText(event) {

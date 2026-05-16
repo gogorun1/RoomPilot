@@ -146,10 +146,7 @@ function buildRealtimeTranscriptionSession({ realtimeModel, transcriptModel }) {
   }
 
   return {
-    type: "realtime",
-    model: realtimeModel,
-    instructions:
-      "Transcribe the user's speech for live captions. Do not answer the user.",
+    type: "transcription",
     audio: {
       input: {
         transcription,
@@ -159,9 +156,6 @@ function buildRealtimeTranscriptionSession({ realtimeModel, transcriptModel }) {
           prefix_padding_ms: 300,
           silence_duration_ms: 500,
         },
-      },
-      output: {
-        voice: process.env.OPENAI_REALTIME_VOICE || "marin",
       },
     },
   };
@@ -648,8 +642,13 @@ function evaluateSignalGate(transcript, memoryQuotes) {
     };
   }
 
+  const priorText = transcript
+    .filter((line) => line !== latestLine)
+    .map((line) => line.text || "")
+    .join(" ");
   const allText = transcript.map((line) => line.text || "").join(" ");
   const lowerQuote = quote.toLowerCase();
+  const lowerPrior = priorText.toLowerCase();
   const lowerAll = allText.toLowerCase();
   const hasProblem = hasAny(lowerQuote, [
     "hard",
@@ -668,6 +667,16 @@ function evaluateSignalGate(transcript, memoryQuotes) {
     "can't",
     "cannot",
     "messy",
+    "难",
+    "麻烦",
+    "问题",
+    "痛点",
+    "做不好",
+    "混乱",
+    "乱",
+    "没人记得",
+    "记不住",
+    "丢",
   ]);
   const hasFollowUpTopic = hasAny(lowerQuote, [
     "follow up",
@@ -677,28 +686,76 @@ function evaluateSignalGate(transcript, memoryQuotes) {
     "intro",
     "intros",
     "event",
+    "跟进",
+    "线索",
+    "客户",
+    "介绍",
+    "对接",
+    "活动",
+    "会后",
+    "表格",
+    "crm",
+    "hubspot",
   ]);
-  const hasOwner = /head of|owns it|owner|responsible|has to deal|team owns/i.test(quote);
-  const hasTiming = /\bq[1-4]\b|quarter|before|next month|this month|this week|deadline|push/i.test(
+  const hasOwner = /head of|owns it|owner|responsible|has to deal|team owns|负责人|负责|谁管|谁来/i.test(
     quote
   );
-  const hasExplicitIntent = /evaluating|looking for|need|needs|want|wants|trying to|we should|we have to/i.test(
+  const hasTiming = /\bq[1-4]\b|quarter|before|next month|this month|this week|deadline|push|季度|下个月|这周|本周|截止|之前|推进/i.test(
     quote
   );
-  const hasPriorContext = /follow[- ]?up|lead|intro|event/i.test(lowerAll);
+  const hasExplicitIntent = /\b(evaluating|looking for|needs?|wants?|trying to|we should|we have to)\b|正在看|想找|需要|想要|必须|得/i.test(
+    quote
+  );
+  const hasHesitation = /budget|approval|approve|approved|not approved|blocked|blocker|预算|审批|批准|还没批|卡住|阻力/i.test(
+    quote
+  );
+  const hasTriedSolution = /tried|last time|spreadsheet|hubspot|crm|no one updated|nobody updated|manual|试过|用过|上次|表格|没人更新|手动/i.test(
+    quote
+  );
+  const hasBridgeRequest = /compare notes|know someone|intro|introduce|connect us|talk to someone|认识.*人|介绍|对接|交流|比较|取经/i.test(
+    quote
+  );
+  const hasCurrentProcess = /usually|process|workflow|spreadsheet|intern|manual|normally|现在|通常|流程|表格|实习生|手动/i.test(
+    quote
+  );
+  const hasPriorContext = /follow[- ]?up|lead|intro|event|跟进|线索|介绍|活动|会后/i.test(
+    lowerAll
+  );
+  const hadPriorProblem = /hard|difficult|struggle|bad|broken|problem|nobody remembers|lose|lost|inconsistent|consistently|难|麻烦|问题|痛点|没人记得|丢/i.test(
+    lowerPrior
+  );
   const hasMemoryBridge =
     hasPriorContext &&
-    memoryQuotes.some((item) => /follow[- ]?up|lead|intro|event/i.test(item.quote || ""));
+    memoryQuotes.some((item) => /follow[- ]?up|lead|intro|event|跟进|线索|介绍|活动/i.test(item.quote || ""));
+
+  const duplicateProblemOnly =
+    hasProblem &&
+    hadPriorProblem &&
+    !hasOwner &&
+    !hasTiming &&
+    !hasExplicitIntent &&
+    !hasHesitation &&
+    !hasTriedSolution &&
+    !hasBridgeRequest &&
+    !hasCurrentProcess;
 
   let score = 0;
-  if (hasProblem && hasFollowUpTopic) score += 3;
+  if (duplicateProblemOnly) score -= 2;
+  if (hasProblem && hasFollowUpTopic && !duplicateProblemOnly) score += 3;
   else if (hasProblem) score += 2;
   if (hasOwner && hasPriorContext) score += 2;
   if (hasTiming && hasPriorContext) score += 1;
   if (hasExplicitIntent && hasPriorContext) score += 1;
-  if (hasMemoryBridge && (hasProblem || hasOwner || hasTiming)) score += 1;
+  if (hasHesitation && hasPriorContext) score += 3;
+  if (hasTriedSolution && hasPriorContext) score += 3;
+  if (hasBridgeRequest && (hasPriorContext || hasMemoryBridge)) score += 3;
+  if (hasCurrentProcess && hasTriedSolution && hadPriorProblem) score += 2;
+  if (hasMemoryBridge && (hasProblem || hasOwner || hasTiming || hasBridgeRequest)) score += 1;
 
-  const shouldConsider = score >= 3 || (hasOwner && hasTiming && hasPriorContext);
+  const shouldConsider =
+    score >= 3 ||
+    (hasOwner && hasTiming && hasPriorContext) ||
+    (hasBridgeRequest && hasMemoryBridge);
 
   return {
     should_consider: shouldConsider,
@@ -720,7 +777,7 @@ function isLowValueQuote(text) {
 
   if (lower.length < 18) return true;
 
-  return /^(yeah|yep|yes|no|okay|ok|sure|right|exactly|cool|nice|thanks|thank you|sounds good|makes sense)[.! ]*$/i.test(
+  return /^(yeah|yep|yes|no|okay|ok|sure|right|exactly|cool|nice|thanks|thank you|sounds good|makes sense|好的|好呀|可以|嗯|对|是的|没错|谢谢|太好了)[.!。！ ]*$/i.test(
     lower
   );
 }
