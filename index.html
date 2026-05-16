@@ -55,6 +55,27 @@
               <p>Suggestions stay quiet until they can show what caused them.</p>
             </div>
 
+            <div class="intent-panel is-hidden" id="intentPanel" aria-label="Conversation plan">
+              <div class="panel-heading compact-heading">
+                <p class="eyebrow">What RoomPilot is sorting out</p>
+                <span id="plannerState">waiting</span>
+              </div>
+              <div class="intent-grid">
+                <div>
+                  <span>Why you're here</span>
+                  <strong id="userGoalText">Find useful follow-up after Tech Europe.</strong>
+                </div>
+                <div>
+                  <span>What they seem to need</span>
+                  <strong id="speakerIntentText">Waiting for their words.</strong>
+                </div>
+                <div>
+                  <span>What is still missing</span>
+                  <strong id="planningGapText">A reason to act.</strong>
+                </div>
+              </div>
+            </div>
+
             <div class="evidence-cue is-hidden" id="beat1Cue">
               <div class="quote-block">
                 <p class="eyebrow">Quote</p>
@@ -153,9 +174,23 @@
               </dl>
             </div>
 
+            <div class="action-palette is-hidden" id="actionPalette" aria-label="Possible next moves">
+              <div class="panel-heading compact-heading">
+                <p class="eyebrow">Possible next moves</p>
+                <span id="actionPaletteState">choosing</span>
+              </div>
+              <div class="action-chip-list" id="actionChipList"></div>
+              <p id="actionReasonText">Waiting for enough proof.</p>
+            </div>
+
+            <div class="action-queue is-hidden" id="actionQueue" aria-label="After-session actions">
+              <p class="eyebrow">After this conversation</p>
+              <div class="queued-actions" id="queuedActions"></div>
+            </div>
+
             <div class="next-card is-hidden" id="nextCard" aria-label="Next thing to do">
               <p class="eyebrow">Next thing to do</p>
-              <h2>Ask if they want to compare notes with Sarah.</h2>
+              <h2 id="nextCardTitle">Ask if they want to compare notes with Sarah.</h2>
               <p>
                 Use the two quotes on screen. Do not pitch yet; just ask whether the comparison would help.
               </p>

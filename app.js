@@ -91,6 +91,105 @@ const statusMessages = [
   "Keeping the proof visible",
 ];
 
+const productStages = {
+  waiting: {
+    plannerState: "waiting",
+    userGoal: "Find useful follow-up after Tech Europe.",
+    speakerIntent: "Waiting for their words.",
+    gap: "A reason to act.",
+    actionState: "waiting",
+    actionReason: "Waiting for enough proof.",
+    selectedAction: null,
+    actions: [],
+    queue: [],
+  },
+  listening: {
+    plannerState: "listening",
+    userGoal: "Find useful follow-up after Tech Europe.",
+    speakerIntent: "Listening for what they are really trying to solve.",
+    gap: "A concrete quote.",
+    actionState: "quiet",
+    actionReason: "No move yet. Stay in the conversation.",
+    selectedAction: null,
+    actions: ["Ask", "Save", "Compare", "Draft later", "Find public context"],
+    queue: [],
+  },
+  firstQuote: {
+    plannerState: "one quote",
+    userGoal: "Find useful follow-up after Tech Europe.",
+    speakerIntent: "They are describing a follow-up problem after events.",
+    gap: "Who feels this problem most.",
+    actionState: "one safe move",
+    actionReason:
+      "Ask one quiet question now. Save and draft later, but do not open another tool during the conversation.",
+    selectedAction: "Ask",
+    actions: ["Ask", "Save", "Compare", "Draft later", "Find public context"],
+    queue: [
+      {
+        title: "Save this moment",
+        detail: "Keep the exact quote with the session.",
+        proof: "Our event leads are hard to follow up consistently.",
+      },
+    ],
+  },
+  updated: {
+    plannerState: "more proof",
+    userGoal: "Find useful follow-up after Tech Europe.",
+    speakerIntent: "They named who is closest to the problem and when it matters.",
+    gap: "What they already tried.",
+    actionState: "prepare later",
+    actionReason:
+      "There is enough proof to prepare a follow-up, but not enough to send one without review.",
+    selectedAction: "Draft later",
+    actions: ["Ask", "Save", "Draft later", "Find public context", "Reminder"],
+    queue: [
+      {
+        title: "Draft a short email",
+        detail: "Use their quote and the Q3 timing. Do not send it automatically.",
+        proof: "Head of Growth owns it. They want something before the Q3 event push.",
+      },
+      {
+        title: "Find public context",
+        detail: "Look up their company and role after the session.",
+        proof: "Head of Growth owns it.",
+      },
+    ],
+  },
+  bridge: {
+    plannerState: "two people",
+    userGoal: "Find useful follow-up after Tech Europe.",
+    speakerIntent: "This may connect two people with the same event follow-up problem.",
+    gap: "Whether they want the comparison.",
+    actionState: "best next move",
+    actionReason:
+      "Ask if a comparison would help. Queue the email and public lookup for after the conversation.",
+    selectedAction: "Compare",
+    actions: ["Compare", "Ask", "Draft later", "Find public context", "Reminder"],
+    queue: [
+      {
+        title: "Ask about the Sarah comparison",
+        detail: "Use the two quotes, not a cold intro.",
+        proof: "Sarah described the same follow-up problem yesterday.",
+      },
+      {
+        title: "Draft follow-up email",
+        detail: "Prepare a note that references the exact quote. Keep it unsent.",
+        proof: "Our event leads are hard to follow up consistently.",
+      },
+      {
+        title: "Find public profile",
+        detail: "After the session, look up the company and role before writing.",
+        proof: "Head of Growth owns it.",
+      },
+      {
+        title: "Create reminder",
+        detail: "Follow up before their Q3 push.",
+        proof: "They want something before the Q3 event push.",
+      },
+    ],
+  },
+};
+
 const els = {
   trustFrame: document.querySelector("#trustFrame"),
   demoGrid: document.querySelector("#demoGrid"),
@@ -100,11 +199,23 @@ const els = {
   beat1Cue: document.querySelector("#beat1Cue"),
   beat2Cue: document.querySelector("#beat2Cue"),
   evidenceCapture: document.querySelector("#evidenceCapture"),
+  intentPanel: document.querySelector("#intentPanel"),
+  plannerState: document.querySelector("#plannerState"),
+  userGoalText: document.querySelector("#userGoalText"),
+  speakerIntentText: document.querySelector("#speakerIntentText"),
+  planningGapText: document.querySelector("#planningGapText"),
   statusPills: document.querySelectorAll(".recording-toggle"),
   statusTexts: document.querySelectorAll(".status-text"),
   graphWrap: document.querySelector(".graph-wrap"),
   memoryState: document.querySelector("#memoryState"),
+  actionPalette: document.querySelector("#actionPalette"),
+  actionPaletteState: document.querySelector("#actionPaletteState"),
+  actionChipList: document.querySelector("#actionChipList"),
+  actionReasonText: document.querySelector("#actionReasonText"),
+  actionQueue: document.querySelector("#actionQueue"),
+  queuedActions: document.querySelector("#queuedActions"),
   nextCard: document.querySelector("#nextCard"),
+  nextCardTitle: document.querySelector("#nextCardTitle"),
   needText: document.querySelector("#needText"),
   ownerText: document.querySelector("#ownerText"),
   timingText: document.querySelector("#timingText"),
@@ -220,9 +331,13 @@ function resetDemo() {
   setHidden(els.beat1Cue, true);
   setHidden(els.beat2Cue, true);
   setHidden(els.evidenceCapture, true);
+  setHidden(els.intentPanel, true);
+  setHidden(els.actionPalette, true);
+  setHidden(els.actionQueue, true);
   setHidden(els.nextCard, true);
   setSessionActive(false);
   els.graphWrap.classList.remove("is-live", "is-bridge");
+  renderProductStage("waiting");
   updateMemory({
     state: "waiting",
     need: "Waiting for a quote.",
@@ -245,7 +360,9 @@ function startClock() {
 function showSession() {
   setHidden(els.trustFrame, true);
   setHidden(els.demoGrid, false);
+  setHidden(els.intentPanel, false);
   els.graphWrap.classList.add("is-live");
+  renderProductStage("listening");
   updateMemory({
     state: "listening",
     need: "Listening for the first useful quote.",
@@ -282,11 +399,52 @@ function updateMemory(next) {
   els.noteText.textContent = next.note;
 }
 
+function renderProductStage(stageName) {
+  const stage = productStages[stageName] || productStages.waiting;
+
+  els.plannerState.textContent = stage.plannerState;
+  els.userGoalText.textContent = stage.userGoal;
+  els.speakerIntentText.textContent = stage.speakerIntent;
+  els.planningGapText.textContent = stage.gap;
+  els.actionPaletteState.textContent = stage.actionState;
+  els.actionReasonText.textContent = stage.actionReason;
+  els.actionChipList.innerHTML = "";
+  els.queuedActions.innerHTML = "";
+
+  stage.actions.forEach((action) => {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.textContent = action;
+    button.className = "action-chip";
+
+    if (action === stage.selectedAction) {
+      button.classList.add("is-selected");
+    }
+
+    els.actionChipList.appendChild(button);
+  });
+
+  stage.queue.forEach((action) => {
+    const item = document.createElement("article");
+    item.className = "queued-action";
+    item.innerHTML = `
+      <h3>${action.title}</h3>
+      <p>${action.detail}</p>
+      <small>Proof: "${action.proof}"</small>
+    `;
+    els.queuedActions.appendChild(item);
+  });
+
+  setHidden(els.actionPalette, stage.actions.length === 0);
+  setHidden(els.actionQueue, stage.queue.length === 0);
+}
+
 function showBeat1() {
   setHidden(els.emptyCue, true);
   setHidden(els.beat2Cue, true);
   setHidden(els.beat1Cue, false);
   setHidden(els.evidenceCapture, true);
+  renderProductStage("firstQuote");
   updateMemory({
     state: "first quote",
     need: "Event leads are hard to follow up consistently.",
@@ -298,6 +456,7 @@ function showBeat1() {
 }
 
 function showAskQuestion() {
+  renderProductStage("firstQuote");
   updateMemory({
     state: "question asked",
     need: "Event leads are hard to follow up consistently.",
@@ -310,6 +469,7 @@ function showAskQuestion() {
 
 function escalateMemory() {
   setHidden(els.evidenceCapture, false);
+  renderProductStage("updated");
   updateMemory({
     state: "updated",
     need: "Event leads are hard to follow up consistently.",
@@ -326,7 +486,9 @@ function showBeat2() {
   setHidden(els.evidenceCapture, true);
   setHidden(els.beat2Cue, false);
   setHidden(els.nextCard, false);
+  els.nextCardTitle.textContent = "Ask if comparing notes with Sarah would help.";
   els.graphWrap.classList.add("is-bridge");
+  renderProductStage("bridge");
   updateMemory({
     state: "two quotes",
     need: "Two people described the same follow-up problem.",
@@ -339,6 +501,8 @@ function showBeat2() {
 
 function showFinalMemory() {
   setHidden(els.nextCard, false);
+  els.nextCardTitle.textContent = "Leave with a queue, not just a question.";
+  renderProductStage("bridge");
   updateMemory({
     state: "ready",
     need: "Event leads are hard to follow up consistently.",
