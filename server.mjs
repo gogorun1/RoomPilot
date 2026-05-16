@@ -248,7 +248,26 @@ async function planActions(request, response) {
   const userGoal = String(body.user_goal || "Find useful follow-up after Tech Europe.");
   const transcript = Array.isArray(body.transcript) ? body.transcript : [];
   const memoryQuotes = Array.isArray(body.memory_quotes) ? body.memory_quotes : [];
-  const fallbackPlan = buildLocalPlan(userGoal, transcript, memoryQuotes);
+  const signalGate = evaluateSignalGate(transcript, memoryQuotes);
+  const fallbackPlan = buildLocalPlan(userGoal, transcript, memoryQuotes, signalGate);
+
+  if (!signalGate.should_consider) {
+    sendJson(response, 200, {
+      ...emptyPlan(userGoal),
+      source: "pioneer_signal_gate",
+      gate_reason: signalGate.reason,
+    });
+    return;
+  }
+
+  if (signalGate.fast_path) {
+    sendJson(response, 200, {
+      ...fallbackPlan,
+      source: "pioneer_fast_path",
+      gate_reason: signalGate.reason,
+    });
+    return;
+  }
 
   if (!process.env.OPENAI_API_KEY) {
     sendJson(response, 200, {
@@ -293,6 +312,7 @@ async function planActions(request, response) {
                     user_goal: userGoal,
                     transcript,
                     memory_quotes: memoryQuotes,
+                    action_gate: signalGate,
                   },
                   null,
                   2
@@ -347,6 +367,8 @@ function plannerSystemPrompt() {
   return [
     "You are RoomPilot's live conversation planner.",
     "Decide whether the user should act now based only on visible transcript evidence and the user's goal.",
+    "Respect the action_gate. If action_gate.should_consider is false, return should_act=false.",
+    "If action_gate.focus_quote is present, use that quote as the evidence unless the transcript has a clearer later quote.",
     "The UI must feel like a thoughtful friend, not a sales tool.",
     "Never use sales-methodology words in user-visible strings.",
     "Every recommendation must cite one exact evidence quote from the transcript or memory quotes.",
@@ -599,13 +621,118 @@ function normalizeAfterSessionActions(actions, fallbackPlan) {
   return normalized.slice(0, 5);
 }
 
-function buildLocalPlan(userGoal, transcript, memoryQuotes) {
-  const text = transcript.map((line) => line.text || "").join(" ");
+function evaluateSignalGate(transcript, memoryQuotes) {
   const latestLine = transcript
     .slice()
     .reverse()
-    .find((line) => (line.text || "").trim());
-  const quote = latestLine?.text || "";
+    .find((line) => cleanText(line.text) && !isUserLine(line));
+  const quote = cleanText(latestLine?.text);
+
+  if (!quote) {
+    return {
+      should_consider: false,
+      fast_path: false,
+      focus_quote: "",
+      score: 0,
+      reason: "No speaker quote yet.",
+    };
+  }
+
+  if (isLowValueQuote(quote)) {
+    return {
+      should_consider: false,
+      fast_path: false,
+      focus_quote: quote,
+      score: 0,
+      reason: "Small talk or acknowledgement; stay quiet.",
+    };
+  }
+
+  const allText = transcript.map((line) => line.text || "").join(" ");
+  const lowerQuote = quote.toLowerCase();
+  const lowerAll = allText.toLowerCase();
+  const hasProblem = hasAny(lowerQuote, [
+    "hard",
+    "difficult",
+    "struggle",
+    "struggling",
+    "bad",
+    "broken",
+    "pain",
+    "problem",
+    "nobody remembers",
+    "lose",
+    "lost",
+    "inconsistent",
+    "consistently",
+    "can't",
+    "cannot",
+    "messy",
+  ]);
+  const hasFollowUpTopic = hasAny(lowerQuote, [
+    "follow up",
+    "follow-up",
+    "lead",
+    "leads",
+    "intro",
+    "intros",
+    "event",
+  ]);
+  const hasOwner = /head of|owns it|owner|responsible|has to deal|team owns/i.test(quote);
+  const hasTiming = /\bq[1-4]\b|quarter|before|next month|this month|this week|deadline|push/i.test(
+    quote
+  );
+  const hasExplicitIntent = /evaluating|looking for|need|needs|want|wants|trying to|we should|we have to/i.test(
+    quote
+  );
+  const hasPriorContext = /follow[- ]?up|lead|intro|event/i.test(lowerAll);
+  const hasMemoryBridge =
+    hasPriorContext &&
+    memoryQuotes.some((item) => /follow[- ]?up|lead|intro|event/i.test(item.quote || ""));
+
+  let score = 0;
+  if (hasProblem && hasFollowUpTopic) score += 3;
+  else if (hasProblem) score += 2;
+  if (hasOwner && hasPriorContext) score += 2;
+  if (hasTiming && hasPriorContext) score += 1;
+  if (hasExplicitIntent && hasPriorContext) score += 1;
+  if (hasMemoryBridge && (hasProblem || hasOwner || hasTiming)) score += 1;
+
+  const shouldConsider = score >= 3 || (hasOwner && hasTiming && hasPriorContext);
+
+  return {
+    should_consider: shouldConsider,
+    fast_path: shouldConsider && (score >= 3 || hasOwner || hasTiming),
+    focus_quote: quote,
+    score,
+    reason: shouldConsider
+      ? "Speaker gave a quote-backed problem, owner, timing, or memory bridge."
+      : "No new quote-backed move; keep the UI quiet.",
+  };
+}
+
+function isUserLine(line) {
+  return /^you$/i.test(cleanText(line.speaker));
+}
+
+function isLowValueQuote(text) {
+  const lower = cleanText(text).toLowerCase();
+
+  if (lower.length < 18) return true;
+
+  return /^(yeah|yep|yes|no|okay|ok|sure|right|exactly|cool|nice|thanks|thank you|sounds good|makes sense)[.! ]*$/i.test(
+    lower
+  );
+}
+
+function hasAny(text, needles) {
+  return needles.some((needle) => text.includes(needle));
+}
+
+function buildLocalPlan(userGoal, transcript, memoryQuotes, signalGate = null) {
+  const text = transcript.map((line) => line.text || "").join(" ");
+  const gate = signalGate || evaluateSignalGate(transcript, memoryQuotes);
+  const quote = gate.focus_quote || "";
   const lower = text.toLowerCase();
   const hasFollowUp = lower.includes("follow") || lower.includes("lead");
   const hasOwner = lower.includes("head of growth") || lower.includes("owns it");
@@ -614,7 +741,7 @@ function buildLocalPlan(userGoal, transcript, memoryQuotes) {
     /follow-up|follow up|event/i.test(item.quote || "")
   );
 
-  if (!quote || !hasFollowUp) {
+  if (!quote || !gate.should_consider || !hasFollowUp) {
     return emptyPlan(userGoal);
   }
 

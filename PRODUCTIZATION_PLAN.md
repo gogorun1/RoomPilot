@@ -29,6 +29,8 @@ RoomPilot should not be a question generator. The live cue should stay light, bu
 3. Evidence Extractor
    - Internal job: only quote-backed facts enter memory.
    - UI wording: quotes stay visible beside suggestions.
+   - Gate rule: do not extract every sentence. Small talk, acknowledgements, and weak context stay quiet.
+   - Speed rule: key quotes use a local/Pioneer-style fast path before any slower planner call.
 
 4. Opportunity Planner
    - Internal job: choose the next action type, not just the next question.

@@ -483,7 +483,7 @@ function queuePlanner() {
     window.clearTimeout(plannerTimer);
   }
 
-  plannerTimer = window.setTimeout(runPlanner, 650);
+  plannerTimer = window.setTimeout(runPlanner, 350);
 }
 
 async function runPlanner() {
