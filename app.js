@@ -131,6 +131,9 @@ let clockTimer = null;
 let statusTimer = null;
 let statusIndex = 0;
 let demoStartedAt = null;
+let demoSpeechVoices = null;
+let demoAudioCache = new Map();
+let demoAudioElements = [];
 let livePeer = null;
 let liveStream = null;
 let liveDataChannel = null;
@@ -321,6 +324,7 @@ async function loadData() {
 function clearTimers() {
   timers.forEach((timer) => window.clearTimeout(timer));
   timers = [];
+  stopDemoSpeech();
 
   if (clockTimer) {
     window.clearInterval(clockTimer);
@@ -397,6 +401,137 @@ function setLiveStatus(message, state = "idle") {
 function describeLiveState(message) {
   const level = Math.round(lastLiveAudioLevel * 100);
   setLiveStatus(`${message} Mic ${level}%`, "active");
+}
+
+function getDemoSpeechVoices() {
+  if (demoSpeechVoices) return demoSpeechVoices;
+
+  const voices = window.speechSynthesis?.getVoices?.() || [];
+  const englishVoices = voices.filter((voice) => /^en[-_]/i.test(voice.lang));
+  const pool = englishVoices.length ? englishVoices : voices;
+  const lowerName = (voice) => voice.name.toLowerCase();
+  const gogoVoice =
+    pool.find((voice) => /male|daniel|alex|fred|thomas|david|george/i.test(voice.name)) ||
+    pool[0] ||
+    null;
+  const camilleVoice =
+    pool.find(
+      (voice) =>
+        voice !== gogoVoice &&
+        /female|samantha|victoria|karen|moira|serena|zira|susan|ava/i.test(voice.name)
+    ) ||
+    pool.find((voice) => voice !== gogoVoice && lowerName(voice) !== lowerName(gogoVoice || { name: "" })) ||
+    null;
+
+  demoSpeechVoices = {
+    gogo: gogoVoice,
+    camille: camilleVoice,
+  };
+  return demoSpeechVoices;
+}
+
+function stopDemoSpeech() {
+  demoAudioElements.forEach((audio) => {
+    audio.pause();
+    audio.currentTime = 0;
+  });
+  demoAudioElements = [];
+
+  if (window.speechSynthesis) {
+    window.speechSynthesis.cancel();
+  }
+}
+
+function resolveDemoSpeakerRole(line) {
+  const speaker = String(line.speaker || "").toLowerCase();
+  const text = String(line.text || "").toLowerCase();
+  const isCamille = speaker.includes("camille") || text.includes("i’m camille") || text.includes("i'm camille");
+  const isGogo = speaker.includes("gogo") || text.includes("i’m gogo") || text.includes("i'm gogo");
+
+  return isCamille && !isGogo ? "camille" : "gogo";
+}
+
+async function getGradiumDemoAudio(line) {
+  if (!line?.text) return null;
+
+  const speaker = resolveDemoSpeakerRole(line);
+  const cacheKey = `${speaker}:${line.text}`;
+
+  if (demoAudioCache.has(cacheKey)) {
+    return demoAudioCache.get(cacheKey).cloneNode();
+  }
+
+  const response = await fetch("/api/demo-tts", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      speaker,
+      text: line.text,
+    }),
+  });
+
+  if (!response.ok) {
+    throw new Error(`Demo TTS failed: ${response.status}`);
+  }
+
+  const audioBlob = await response.blob();
+  const audio = new Audio(URL.createObjectURL(audioBlob));
+  audio.preload = "auto";
+  demoAudioCache.set(cacheKey, audio);
+
+  return audio.cloneNode();
+}
+
+async function preloadDemoSpeech() {
+  const lines = timeline.transcript || [];
+  await Promise.allSettled(lines.slice(0, 6).map(getGradiumDemoAudio));
+  lines.slice(6).forEach((line) => {
+    getGradiumDemoAudio(line).catch(() => {});
+  });
+}
+
+function speakBrowserDemoLine(line) {
+  if (!window.speechSynthesis || !line?.text) return;
+
+  const utterance = new SpeechSynthesisUtterance(line.text);
+  const voices = getDemoSpeechVoices();
+  const isCamille = resolveDemoSpeakerRole(line) === "camille";
+
+  utterance.voice = isCamille ? voices.camille : voices.gogo;
+  utterance.lang = "en-US";
+  utterance.rate = isCamille ? 1.02 : 1;
+  utterance.pitch = isCamille ? 1.18 : 0.82;
+  utterance.volume = 0.95;
+
+  window.speechSynthesis.speak(utterance);
+}
+
+async function speakDemoLine(line) {
+  try {
+    const audio = await getGradiumDemoAudio(line);
+
+    if (!audio) return;
+
+    demoAudioElements.push(audio);
+    audio.addEventListener(
+      "ended",
+      () => {
+        demoAudioElements = demoAudioElements.filter((item) => item !== audio);
+      },
+      { once: true }
+    );
+    await audio.play();
+  } catch (error) {
+    speakBrowserDemoLine(line);
+  }
+}
+
+if (window.speechSynthesis) {
+  window.speechSynthesis.addEventListener("voiceschanged", () => {
+    demoSpeechVoices = null;
+  });
 }
 
 function resetDemo() {
@@ -1162,10 +1297,12 @@ function startDemo() {
   setSessionActive(true);
   showSession();
   startClock();
+  preloadDemoSpeech();
 
   timeline.transcript.forEach((line) => {
     timers.push(
       window.setTimeout(() => {
+        speakDemoLine(line);
         addTranscript(line);
       }, line.at)
     );

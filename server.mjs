@@ -6,6 +6,7 @@ const root = process.cwd();
 const port = Number(process.env.PORT || 5173);
 const host = process.env.HOST || "127.0.0.1";
 const supportedTranscriptLanguages = new Set(["en", "zh", "fr"]);
+const demoTtsCache = new Map();
 
 loadEnvFile(".env");
 loadEnvFile(".env.local");
@@ -35,6 +36,11 @@ const server = createServer(async (request, response) => {
 
     if (url.pathname === "/api/plan-actions" && request.method === "POST") {
       await planActions(request, response);
+      return;
+    }
+
+    if (url.pathname === "/api/demo-tts" && request.method === "POST") {
+      await synthesizeDemoSpeech(request, response);
       return;
     }
 
@@ -385,6 +391,118 @@ async function planActions(request, response) {
       planner_status: error.message,
     });
   }
+}
+
+async function synthesizeDemoSpeech(request, response) {
+  loadEnvFile(".env");
+  loadEnvFile(".env.local");
+
+  const apiKey = process.env.GRADIUM_API_KEY;
+
+  if (!apiKey) {
+    sendJson(response, 501, {
+      error: "GRADIUM_API_KEY is missing in .env.local",
+    });
+    return;
+  }
+
+  const body = await readJsonBody(request, 16 * 1024);
+  const text = cleanText(body.text || "");
+
+  if (!text) {
+    sendJson(response, 400, { error: "Text is required" });
+    return;
+  }
+
+  if (text.length > 800) {
+    sendJson(response, 400, { error: "Text is too long for demo TTS" });
+    return;
+  }
+
+  const speaker = String(body.speaker || "").toLowerCase();
+  const lowerText = text.toLowerCase();
+  const isCamille =
+    speaker.includes("camille") ||
+    lowerText.includes("i'm camille") ||
+    lowerText.includes("i’m camille");
+  const voiceId = isCamille
+    ? process.env.GRADIUM_CAMILLE_VOICE_ID || process.env.GRADIUM_VOICE_ID
+    : process.env.GRADIUM_GOGO_VOICE_ID || process.env.GRADIUM_VOICE_ID;
+
+  if (!voiceId) {
+    sendJson(response, 501, {
+      error:
+        "Gradium voice id is missing. Add GRADIUM_GOGO_VOICE_ID and GRADIUM_CAMILLE_VOICE_ID to .env.local.",
+    });
+    return;
+  }
+
+  const outputFormat = process.env.GRADIUM_OUTPUT_FORMAT || "wav";
+  const cacheKey = `${voiceId}:${outputFormat}:${text}`;
+  const cached = demoTtsCache.get(cacheKey);
+
+  if (cached) {
+    response.writeHead(200, {
+      "Content-Type": cached.contentType,
+      "Cache-Control": "private, max-age=300",
+    });
+    response.end(cached.audio);
+    return;
+  }
+
+  const baseUrl = (process.env.GRADIUM_API_BASE_URL || "https://api.gradium.ai/api").replace(/\/$/, "");
+  const upstream = await fetch(`${baseUrl}/post/speech/tts`, {
+    method: "POST",
+    headers: {
+      "x-api-key": apiKey,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      text,
+      voice_id: voiceId,
+      output_format: outputFormat,
+      only_audio: true,
+    }),
+  });
+
+  const contentType = upstream.headers.get("content-type") || `audio/${outputFormat}`;
+  const payload = Buffer.from(await upstream.arrayBuffer());
+
+  if (!upstream.ok) {
+    const details = contentType.includes("application/json")
+      ? JSON.parse(payload.toString("utf8") || "{}")
+      : payload.toString("utf8");
+    sendJson(response, upstream.status, {
+      error: "Gradium TTS failed",
+      details,
+    });
+    return;
+  }
+
+  if (contentType.includes("application/json")) {
+    const details = JSON.parse(payload.toString("utf8") || "{}");
+    sendJson(response, 502, {
+      error: "Gradium returned JSON instead of audio. Check only_audio support or output settings.",
+      details,
+    });
+    return;
+  }
+
+  if (demoTtsCache.size > 64) {
+    const oldestKey = demoTtsCache.keys().next().value;
+    demoTtsCache.delete(oldestKey);
+  }
+
+  demoTtsCache.set(cacheKey, {
+    audio: payload,
+    contentType,
+  });
+
+  response.writeHead(200, {
+    "Content-Type": contentType,
+    "Cache-Control": "private, max-age=300",
+  });
+  response.end(payload);
 }
 
 function plannerSystemPrompt() {
