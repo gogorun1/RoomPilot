@@ -3,96 +3,102 @@
     {
       "id": "t1",
       "speaker": "Heard",
-      "text": "Hi, I’m Gogo. I’m building RoomPilot today: it helps me turn live conversations into the next useful move.",
-      "at": 3200
+      "speakerId": "speaker_gogo",
+      "text": "Hi, I’m Gogo. I’m building RoomPilot, a quiet assistant for live opportunity conversations.",
+      "at": 3800
     },
     {
       "id": "t2",
       "speaker": "Heard",
-      "text": "I’m Camille. Nice to meet you. I work with founder programs around events, so I’ve seen this kind of problem a lot.",
-      "at": 5400
+      "speakerId": "speaker_camille",
+      "text": "I’m Camille. I work with founder programs around events, so this is exactly the room where that problem shows up.",
+      "at": 9000
     },
     {
       "id": "t3",
-      "speaker": "Gogo",
-      "text": "Nice. How has the hackathon been for you so far? It’s a pretty intense room.",
-      "at": 7800
+      "speaker": "Heard",
+      "speakerId": "speaker_gogo",
+      "text": "The simple pitch is: people leave useful conversations with no clear next move.",
+      "at": 15000
     },
     {
       "id": "t4",
-      "speaker": "Camille",
-      "text": "Yeah, intense but good. I’ve had too much coffee already, but the projects are strong.",
-      "at": 10200
-    },
-    {
-      "id": "t5",
-      "speaker": "Gogo",
-      "text": "I built this RoomPilot demo today, but I’m honestly not sure what the next step is after the hackathon. I don’t want it to just become another weekend project.",
-      "at": 13200
-    },
-    {
-      "id": "t6",
-      "speaker": "Camille",
-      "text": "Yeah, that happens a lot. You get a demo working, everyone says it’s cool, and then Monday comes and nobody knows who to talk to.",
-      "at": 16200,
+      "speaker": "Heard",
+      "speakerId": "speaker_camille",
+      "text": "Right. The hard part is not meeting people; it is remembering the useful next step before the moment disappears.",
+      "at": 21000,
       "hero": true
     },
     {
+      "id": "t5",
+      "speaker": "Heard",
+      "speakerId": "speaker_gogo",
+      "text": "That is the pain. Most tools summarize later; RoomPilot helps while the person is still here.",
+      "at": 28500
+    },
+    {
+      "id": "t6",
+      "speaker": "Heard",
+      "speakerId": "speaker_camille",
+      "text": "Then the product should show the exact quote, say what it is not assuming, and give one useful next move.",
+      "at": 34500
+    },
+    {
       "id": "t7",
-      "speaker": "Camille",
-      "text": "The real risk is that the demo dies after the weekend.",
-      "at": 18600
+      "speaker": "Heard",
+      "speakerId": "speaker_gogo",
+      "text": "What one action would save that moment in this room?",
+      "at": 43000
     },
     {
       "id": "t8",
-      "speaker": "Gogo",
-      "text": "That is exactly what I’m worried about. Who do you think would actually care enough to try something like this next week?",
-      "at": 24400
+      "speaker": "Heard",
+      "speakerId": "speaker_camille",
+      "text": "If someone says, ‘I’d talk to Hexa,’ capture that, then ask who at Hexa and what to mention.",
+      "at": 50000,
+      "evidence": true
     },
     {
       "id": "t9",
-      "speaker": "Camille",
-      "text": "I’d talk to someone at Hexa. They see a lot of founder meetings and event follow-up problems. There’s probably a team or partner there who would understand this immediately.",
-      "at": 28600,
-      "evidence": true
+      "speaker": "Heard",
+      "speakerId": "speaker_gogo",
+      "text": "So the tech path is simple: OpenAI Realtime turns speech into live text, Pioneer checks which quote is worth acting on, and RoomPilot turns it into one card.",
+      "at": 58500
     },
     {
       "id": "t10",
-      "speaker": "Gogo",
-      "text": "Okay, that helps. Who at Hexa would be the right first person to talk to?",
-      "at": 34800
+      "speaker": "Heard",
+      "speakerId": "speaker_camille",
+      "text": "And the memory graph matters only if it can connect this quote to something Sarah said yesterday.",
+      "at": 66500
     },
     {
       "id": "t11",
-      "speaker": "Camille",
-      "text": "Maybe Nick. I don’t know if he owns this exactly, but he’d know who does. I can send you his email, or you can probably find him on LinkedIn.",
-      "at": 38600,
-      "evidence": true
+      "speaker": "Heard",
+      "speakerId": "speaker_gogo",
+      "text": "Right: OpenAI gives us the live words, Pioneer stops every sentence from becoming a card, audio is not stored, and the UI keeps the proof visible.",
+      "at": 74500
     },
     {
       "id": "t12",
-      "speaker": "Gogo",
-      "text": "Amazing. I’ll keep it light. What should I ask him without sounding like I’m pitching too hard?",
-      "at": 44400
+      "speaker": "Heard",
+      "speakerId": "speaker_camille",
+      "text": "That is the two-minute pitch: not another call summary, a proof-backed next-move layer for live rooms.",
+      "at": 83500
     },
     {
       "id": "t13",
-      "speaker": "Camille",
-      "text": "Just say you tested it live at Tech Europe and want to know whether this helps founders avoid losing useful conversations after events.",
-      "at": 48200,
-      "evidence": true
+      "speaker": "Heard",
+      "speakerId": "speaker_gogo",
+      "text": "Perfect. That is exactly the story I want the judges to feel.",
+      "at": 91000
     },
     {
       "id": "t14",
-      "speaker": "Gogo",
-      "text": "That’s perfect. Thanks, Camille. Good luck with the rest of the demos.",
-      "at": 52200
-    },
-    {
-      "id": "t15",
-      "speaker": "Camille",
-      "text": "You too. I’ll send Nick’s contact later if I find the right one.",
-      "at": 54800
+      "speaker": "Heard",
+      "speakerId": "speaker_camille",
+      "text": "Good. Now make the demo quiet enough that the proof does the selling.",
+      "at": 96000
     }
   ],
   "events": [
@@ -102,23 +108,23 @@
     },
     {
       "type": "beat1",
-      "at": 19800
+      "at": 23800
     },
     {
       "type": "askQuestion",
-      "at": 23200
+      "at": 41000
     },
     {
       "type": "escalateMemory",
-      "at": 31000
+      "at": 53500
     },
     {
       "type": "beat2",
-      "at": 40800
+      "at": 69500
     },
     {
       "type": "showFinalMemory",
-      "at": 50000
+      "at": 87500
     }
   ]
 }

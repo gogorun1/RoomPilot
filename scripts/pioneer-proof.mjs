@@ -3,7 +3,7 @@
 import { existsSync, readFileSync } from "node:fs";
 
 const DEFAULT_QUOTE =
-  "Head of Growth owns it. They want something before the Q3 event push.";
+  "If someone says, ‘I’d talk to Hexa,’ capture that, then ask who at Hexa and what to mention.";
 
 const quote = process.argv.slice(2).join(" ").trim() || DEFAULT_QUOTE;
 
@@ -47,16 +47,25 @@ function deterministicExtraction(text) {
     };
   }
 
-  const primaryNeedOwner = /head of growth/i.test(text) ? "Head of Growth" : null;
+  const primaryNeedOwner = /head of growth/i.test(text)
+    ? "Head of Growth"
+    : /\bhexa\b/i.test(text)
+      ? "Hexa contact"
+      : null;
   const timingSignal = /\bq3\b/i.test(text) ? "before Q3" : null;
+  const isHexaPath = /\bhexa\b/i.test(text);
 
   return {
     should_extract: true,
     primary_need_owner: primaryNeedOwner,
     timing_signal: timingSignal,
-    missing_information: ["what they already tried"],
-    not_inferred: ["whether they will buy"],
-    confidence: Math.max(gate.confidence, primaryNeedOwner && timingSignal ? 0.9 : 0.72),
+    missing_information: isHexaPath
+      ? ["who at Hexa", "what to mention"]
+      : ["what they already tried"],
+    not_inferred: isHexaPath
+      ? ["who at Hexa is the right person", "whether they agreed to an intro"]
+      : ["whether they will buy"],
+    confidence: Math.max(gate.confidence, primaryNeedOwner && (timingSignal || isHexaPath) ? 0.88 : 0.72),
     gate_reason: gate.reason,
   };
 }
@@ -107,6 +116,12 @@ function evaluateQuoteGate(text) {
     "intro",
     "intros",
     "event",
+    "hexa",
+    "contact",
+    "email",
+    "linkedin",
+    "mention",
+    "talk to",
   ]);
   const hasOwner = /head of|owns it|owner|responsible|has to deal|team owns/i.test(
     quoteText
@@ -117,6 +132,9 @@ function evaluateQuoteGate(text) {
   const hasIntent = /evaluating|looking for|need|needs|want|wants|trying to|we should|we have to/i.test(
     quoteText
   );
+  const hasActionPath = /\bhexa\b|contact|email|linkedin|who at|what to mention|talk to/i.test(
+    quoteText
+  );
 
   let score = 0;
   if (hasProblem && hasTopic) score += 3;
@@ -124,6 +142,7 @@ function evaluateQuoteGate(text) {
   if (hasOwner) score += 2;
   if (hasTiming) score += 1;
   if (hasIntent && hasTopic) score += 1;
+  if (hasActionPath) score += 3;
 
   return {
     should_extract: score >= 3 || (hasOwner && hasTiming),

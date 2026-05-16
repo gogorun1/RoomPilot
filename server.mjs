@@ -275,7 +275,7 @@ async function planActions(request, response) {
   loadEnvFile(".env.local");
 
   const body = await readJsonBody(request, 128 * 1024);
-  const userGoal = String(body.user_goal || "Find useful follow-up after Tech Europe.");
+  const userGoal = String(body.user_goal || "Turn this live room into one useful next move.");
   const transcript = Array.isArray(body.transcript) ? body.transcript : [];
   const memoryQuotes = Array.isArray(body.memory_quotes) ? body.memory_quotes : [];
   const signalGate = evaluateSignalGate(transcript, memoryQuotes);
@@ -491,11 +491,12 @@ function normalizePlan(plan, fallbackPlan) {
     : "";
   const recommendedActionType =
     modelRecommendedActionType || fallbackPlan.recommended_action_type || "ask";
+  const evidenceQuote = cleanText(plan.evidence_quote) || fallbackPlan.evidence_quote || "";
 
   return {
     should_act: Boolean(plan.should_act),
-    evidence_quote: cleanText(plan.evidence_quote),
-    live_cue: ensureConcreteCue(plan, fallbackPlan),
+    evidence_quote: evidenceQuote,
+    live_cue: ensureConcreteCue({ ...plan, evidence_quote: evidenceQuote }, fallbackPlan),
     not_inferred: normalizeNotInferred(plan.not_inferred, fallbackPlan.not_inferred),
     confidence: ["low", "medium", "high"].includes(plan.confidence)
       ? plan.confidence
@@ -546,11 +547,12 @@ function normalizeNotInferred(value, fallbackValue) {
 
 function ensureConcreteCue(plan, fallbackPlan) {
   const cue = cleanText(plan.live_cue);
+  const evidence = cleanText(plan.evidence_quote || fallbackPlan.evidence_quote).toLowerCase();
 
   if (!cue) return fallbackPlan.live_cue;
 
   const lower = cue.toLowerCase();
-  const evidence = cleanText(plan.evidence_quote || fallbackPlan.evidence_quote).toLowerCase();
+  const fallbackCue = fallbackPlan.live_cue || "";
   const soundsLikeMove =
     lower.includes("ask") ||
     lower.includes("save") ||
@@ -563,17 +565,47 @@ function ensureConcreteCue(plan, fallbackPlan) {
     lower.includes("check") ||
     lower.includes("find");
 
+  if (fallbackCue && cueConflictsWithEvidence(lower, evidence)) {
+    return fallbackCue;
+  }
+
   if (soundsLikeMove) return cue;
 
   if (/hexa|hx|nick|负责人|部门|相关的项目|email|gmail|linkedin|领英|资源|resource|person/.test(evidence)) {
     return `${cue} Ask who to talk to first and what to mention.`;
   }
 
-  if (/会议|约|meeting|call|q[1-4]|q2|q3|之前|before/.test(evidence)) {
+  if (/会议|约|meeting|call|q[1-4]|q2|q3|截止|deadline|next month|this month/.test(evidence)) {
     return `${cue} Ask who should be in the first meeting.`;
   }
 
   return `${cue} Ask what they have already tried.`;
+}
+
+function cueConflictsWithEvidence(cue, evidence) {
+  if (!cue || !evidence) return false;
+
+  const cueTalksFollowUp = /follow[- ]?up|lead|event leads|after the event|next step|next move/i.test(cue);
+  const evidenceTalksFollowUp = /follow[- ]?up|lead|event leads|after the event|next step|next move/i.test(evidence);
+  const cueTalksContact = /email|gmail|linkedin|contact|nick|hexa|path|resource|person/i.test(cue);
+  const evidenceTalksContact = /email|gmail|linkedin|contact|nick|hexa|path|resource|person/i.test(evidence);
+  const cueTalksContactDetail = /email|gmail|linkedin|contact/i.test(cue);
+  const evidenceTalksContactDetail = /email|gmail|linkedin|contact/i.test(evidence);
+  const cueTalksDemoRisk = /demo|weekend|next week/i.test(cue);
+  const evidenceTalksDemoRisk = /demo|weekend|next week/i.test(evidence);
+  const cueTalksLostNextStep = /next step disappears|one action would save|lost-next-step|moment disappears/i.test(cue);
+  const evidenceTalksLostNextStep = /next step disappears|no clear next move|useful next step|moment disappears/i.test(evidence);
+  const evidenceTalksHexa = /\bhexa\b|\bhx\b/i.test(evidence);
+  const cueMatchesHexaMove = /\bhexa\b/i.test(cue) && /who|what to mention|start with/i.test(cue);
+
+  return (
+    (evidenceTalksLostNextStep && !cueTalksLostNextStep) ||
+    (evidenceTalksHexa && !cueMatchesHexaMove) ||
+    (cueTalksContactDetail && !evidenceTalksContactDetail) ||
+    (cueTalksFollowUp && !evidenceTalksFollowUp && (evidenceTalksContact || evidenceTalksDemoRisk)) ||
+    (cueTalksContact && !evidenceTalksContact && (evidenceTalksFollowUp || evidenceTalksDemoRisk)) ||
+    (cueTalksDemoRisk && !evidenceTalksDemoRisk && (evidenceTalksFollowUp || evidenceTalksContact))
+  );
 }
 
 function normalizeMemoryUpdate(memoryUpdate, fallbackMemoryUpdate, preferFallback) {
@@ -719,6 +751,10 @@ function scoreSignalCandidate(quote, priorText, allText, memoryQuotes, index) {
     "pain",
     "problem",
     "nobody remembers",
+    "next step disappears",
+    "no clear next move",
+    "useful next step",
+    "moment disappears",
     "lose",
     "lost",
     "inconsistent",
@@ -759,6 +795,10 @@ function scoreSignalCandidate(quote, priorText, allText, memoryQuotes, index) {
     "intro",
     "intros",
     "event",
+    "next step",
+    "next move",
+    "proof",
+    "quote",
     "跟进",
     "线索",
     "客户",
@@ -789,7 +829,7 @@ function scoreSignalCandidate(quote, priorText, allText, memoryQuotes, index) {
   const hasContactRequest = /gmail|e-mail|email|mail|contact|联系方式|邮箱|邮件|微信|电话|要一下|要.*联系方式|courriel|coordonnées|coordonnees/i.test(
     quote
   );
-  const hasResourcePath = /what'?s next|next step|resource|resources|expand|expansion|linkedin|linked in|下一步|拓展|扩展|资源|领英|黑客松|部门|相关的项目|行动节点|可以去跟|聊一下|参加/i.test(
+  const hasResourcePath = /what'?s next|resource|resources|expand|expansion|linkedin|linked in|拓展|扩展|资源|领英|黑客松|部门|相关的项目|行动节点|可以去跟|聊一下|参加/i.test(
     quote
   );
   const hasNamedPerson = /\bnick\b|\bhexa\b|\bhx\b|负责人|负责的人|联系人|contact person/i.test(
@@ -798,7 +838,7 @@ function scoreSignalCandidate(quote, priorText, allText, memoryQuotes, index) {
   const hasOwner = /head of|owns it|owner|responsible|has to deal|team owns|负责人|负责|谁管|谁来|responsable|s'en occupe|équipe croissance|equipe croissance/i.test(
     quote
   );
-  const hasTiming = /\bq[1-4]\b|\bt[1-4]\b|quarter|before|next month|this month|this week|deadline|push|季度|下个月|这周|本周|截止|之前|推进|未来|trimestre|avant|mois prochain|ce mois|cette semaine|échéance|echeance|lancement/i.test(
+  const hasTiming = /\bq[1-4]\b|\bt[1-4]\b|quarter|before\s+(?:q[1-4]|the deadline|next|this|launch)|next month|this month|this week|deadline|push|季度|下个月|这周|本周|截止|推进|未来|trimestre|mois prochain|ce mois|cette semaine|échéance|echeance|lancement/i.test(
     quote
   );
   const hasExplicitIntent = /\b(evaluating|looking for|needs?|wants?|trying to|we should|we have to)\b|正在看|想找|需要|想要|必须|得|évaluer|evaluer|cherchons|cherche|besoin|voulons|veulent|essayer|on doit|il faut/i.test(
@@ -816,16 +856,16 @@ function scoreSignalCandidate(quote, priorText, allText, memoryQuotes, index) {
   const hasCurrentProcess = /usually|process|workflow|spreadsheet|intern|manual|normally|现在|目前|通常|流程|表格|实习生|手动|généralement|generalement|processus|tableur|stagiaire|manuel/i.test(
     quote
   );
-  const hasPriorContext = /follow[- ]?up|lead|intro|event|meeting|solution|vendor|provider|contact|email|跟进|线索|介绍|活动|会后|会议|服务商|解决方案|解决.*问题|联系方式|邮箱|约时间|讨论|suivi|relance|prospect|événement|evenement|salon|réunion|reunion|solution|prestataire|contact/i.test(
+  const hasPriorContext = /follow[- ]?up|lead|intro|event|meeting|solution|vendor|provider|contact|email|next step|next move|proof|quote|moment disappears|跟进|线索|介绍|活动|会后|会议|服务商|解决方案|解决.*问题|联系方式|邮箱|约时间|讨论|suivi|relance|prospect|événement|evenement|salon|réunion|reunion|solution|prestataire|contact/i.test(
     lowerAll
   );
-  const hadPriorProblem = /hard|difficult|struggle|bad|broken|problem|nobody remembers|lose|lost|inconsistent|consistently|难|麻烦|问题|痛点|没人记得|丢|difficile|compliqué|complique|problème|probleme|personne ne se souvient|perdu|désorganisé|desorganise/i.test(
+  const hadPriorProblem = /hard|difficult|struggle|bad|broken|problem|nobody remembers|lose|lost|inconsistent|consistently|next step disappears|no clear next move|moment disappears|难|麻烦|问题|痛点|没人记得|丢|difficile|compliqué|complique|problème|probleme|personne ne se souvient|perdu|désorganisé|desorganise/i.test(
     lowerPrior
   );
   const hasMemoryBridge =
     hasPriorContext &&
     memoryQuotes.some((item) =>
-      /follow[- ]?up|lead|intro|event|跟进|线索|介绍|活动|suivi|relance|prospect|événement|evenement|salon/i.test(
+      /follow[- ]?up|lead|intro|event|next step|next move|quote|moment disappears|跟进|线索|介绍|活动|suivi|relance|prospect|événement|evenement|salon/i.test(
         item.quote || ""
       )
     );
@@ -850,6 +890,7 @@ function scoreSignalCandidate(quote, priorText, allText, memoryQuotes, index) {
   if (hasExplicitIntent && hasPriorContext) score += 1;
   if (hasProviderOrSolution && (hasProblem || hasExplicitIntent || hasPriorContext)) score += 2;
   if (hasResourcePath && (hasPriorContext || hasExplicitIntent || hasNamedPerson)) score += 3;
+  if (hasNamedPerson && hasPriorContext) score += 2;
   if (hasContactRequest && hasPriorContext) score += 3;
   if (hasMeetingStep && (hasPriorContext || hasProblem || hasExplicitIntent)) score += 2;
   if (hasNamedPerson && (hasContactRequest || hasMeetingStep || hasOwner)) score += 1;
@@ -864,6 +905,7 @@ function scoreSignalCandidate(quote, priorText, allText, memoryQuotes, index) {
     (hasOwner && hasTiming && hasPriorContext) ||
     (hasBridgeRequest && hasMemoryBridge) ||
     (hasResourcePath && (hasPriorContext || hasNamedPerson || hasContactRequest)) ||
+    (hasNamedPerson && hasPriorContext) ||
     (hasContactRequest && hasPriorContext) ||
     (hasMeetingStep && hasExplicitIntent && hasPriorContext);
 
@@ -900,7 +942,7 @@ function pickFocusedEvidenceQuote(text) {
     let score = 0;
 
     if (/hexa|hx|nick|负责人|谁谁谁|部门|相关的项目|person|someone|contact/.test(lower)) score += 6;
-    if (/what'?s next|next step|下一步|拓展|扩展|资源|resource|expand|expansion/.test(lower)) score += 5;
+    if (/what'?s next|下一步|拓展|扩展|资源|resource|expand|expansion/.test(lower)) score += 5;
     if (/linkedin|linked in|领英|gmail|email|邮箱|联系方式/.test(lower)) score += 4;
     if (/会议|约|聊一下|参加|行动节点|meeting|event|talk|join/.test(lower)) score += 3;
     if (/问题|解决方案|服务商|solution|provider|problem/.test(lower)) score += 2;
@@ -1030,10 +1072,10 @@ function buildLocalPlan(userGoal, transcript, memoryQuotes, signalGate = null) {
   const hasContactRequest = /gmail|e-mail|email|mail|contact|联系方式|邮箱|邮件|微信|电话|要一下|要.*联系方式|courriel|coordonnées|coordonnees/i.test(
     text
   );
-  const quoteHasResourcePath = /what'?s next|next step|resource|resources|expand|expansion|linkedin|linked in|下一步|拓展|扩展|资源|领英|黑客松|部门|相关的项目|行动节点|可以去跟|聊一下|参加/i.test(
+  const quoteHasResourcePath = /what'?s next|resource|resources|expand|expansion|linkedin|linked in|拓展|扩展|资源|领英|黑客松|部门|相关的项目|行动节点|可以去跟|聊一下|参加/i.test(
     quote
   );
-  const hasResourcePath = /what'?s next|next step|resource|resources|expand|expansion|linkedin|linked in|下一步|拓展|扩展|资源|领英|黑客松|部门|相关的项目|行动节点|可以去跟|聊一下|参加/i.test(
+  const hasResourcePath = /what'?s next|resource|resources|expand|expansion|linkedin|linked in|拓展|扩展|资源|领英|黑客松|部门|相关的项目|行动节点|可以去跟|聊一下|参加/i.test(
     text
   );
   const hasMeetingStep = /meeting|call|book time|schedule|meet|discussion|talk further|会议|约会|约一个会议|约会议|约时间|再约|深入.*讨论|进一步.*聊|电话|réunion|reunion|rendez-vous|appel|discussion/i.test(
@@ -1042,17 +1084,17 @@ function buildLocalPlan(userGoal, transcript, memoryQuotes, signalGate = null) {
   const hasServiceNeed = /vendor|provider|service provider|supplier|tool|solution|solve|service|服务商|供应商|工具|产品|服务|解决方案|解决.*问题|方案|prestataire|fournisseur|outil|solution|résoudre|resoudre/i.test(
     text
   );
-  const hasEventFollowUpContext = /follow-up|follow up|lead|leads|intro|event|跟进|线索|介绍|对接|活动|会后|suivi|relance|prospect|événement|evenement|salon/i.test(
+  const hasEventFollowUpContext = /follow-up|follow up|lead|leads|intro|event|next step|next move|moment disappears|proof|quote|跟进|线索|介绍|对接|活动|会后|suivi|relance|prospect|événement|evenement|salon/i.test(
     text
   );
   const hasOwner = /head of growth|owns it|owner|responsible|负责人|增长负责人|负责|谁管|谁来|responsable|s'en occupe|équipe croissance|equipe croissance/i.test(
     text
   );
-  const hasTiming = /\bq[1-4]\b|\bt[1-4]\b|quarter|before|next month|this month|deadline|push|季度|下个月|本周|这周|截止|之前|推进|trimestre|avant|mois prochain|ce mois|échéance|echeance|lancement/i.test(
+  const hasTiming = /\bq[1-4]\b|\bt[1-4]\b|quarter|before\s+(?:q[1-4]|the deadline|next|this|launch)|next month|this month|deadline|push|季度|下个月|本周|这周|截止|推进|trimestre|mois prochain|ce mois|échéance|echeance|lancement/i.test(
     text
   );
   const bridge = memoryQuotes.find((item) =>
-    /follow-up|follow up|lead|intro|event|跟进|线索|介绍|对接|活动|会后|suivi|relance|prospect|événement|evenement|salon/i.test(
+    /follow-up|follow up|lead|intro|event|next step|next move|moment disappears|quote|跟进|线索|介绍|对接|活动|会后|suivi|relance|prospect|événement|evenement|salon/i.test(
       item.quote || ""
     )
   );
@@ -1080,26 +1122,47 @@ function buildLocalPlan(userGoal, transcript, memoryQuotes, signalGate = null) {
     actions.splice(2, 0, { label: "Compare", type: "compare", selected: selectedType === "compare" });
   }
 
-  const liveCue = quoteHasResourcePath || hasResourcePath
-    ? "They pointed to a person or resource path. Ask who to talk to first and what to ask them."
-    : quoteHasContactRequest
-      ? "They named the missing contact detail. Ask for the right email before the thread gets loose."
-      : hasMeetingStep && hasTiming
-        ? "They named someone to reach and a Q2 window. Ask who should be in the first meeting."
-      : hasOwner
-        ? "They named who is closest to this and when it matters. Ask what they tried last time."
-        : hasServiceNeed
-          ? "They said the current problem still lacks a good solution. Ask what has already been tried."
-          : "They described a follow-up problem, but not who feels it most. Ask who has to deal with this after the event.";
-  const notInferred = quoteHasResourcePath || hasResourcePath
-    ? "Not assuming that person is the right contact yet."
-    : quoteHasContactRequest
-      ? "Not assuming this email is enough to start a deal."
-      : hasMeetingStep
-      ? "Not assuming they already agreed to meet."
-      : hasOwner
-        ? "Not assuming they want to buy anything."
-        : "They have not named who decides yet.";
+  const quoteLower = quote.toLowerCase();
+  const quoteNamesLostNextStep = /next step disappears|no clear next move|useful next step|moment disappears/i.test(quote);
+  const quoteNamesDemoRisk = /demo dies after the weekend|weekend project|dies after/i.test(quote);
+  const quoteNamesHexaPath = /\bhexa\b|\bhx\b/i.test(quote);
+  const quoteNamesNickPath = /\bnick\b/i.test(quote);
+  const quoteNamesGenericProblem = /hard|difficult|struggle|struggling|problem|pain|nobody remembers|lose|lost|inconsistent|consistently|难|麻烦|问题|痛点|没人记得|丢|difficile|compliqué|complique|problème|probleme/i.test(
+    quote
+  );
+  const quoteNamesSolutionGap = /vendor|provider|service provider|supplier|tool|solution|solve|service|服务商|供应商|工具|产品|服务|解决方案|方案|prestataire|fournisseur|outil|solution/i.test(
+    quote
+  );
+  const quoteNamesMeeting = /meeting|call|book time|schedule|meet|discussion|talk further|会议|约会|约一个会议|约会议|约时间|再约|深入.*讨论|进一步.*聊|电话|réunion|reunion|rendez-vous|appel|discussion/i.test(
+    quote
+  );
+
+  const liveCue = buildQuoteMatchedCue({
+    quote,
+    quoteLower,
+    quoteHasResourcePath,
+    quoteHasContactRequest,
+    quoteNamesLostNextStep,
+    quoteNamesDemoRisk,
+    quoteNamesHexaPath,
+    quoteNamesNickPath,
+    quoteNamesSolutionGap,
+    quoteNamesMeeting,
+    quoteNamesGenericProblem,
+    hasOwner,
+    hasTiming,
+  });
+  const notInferred = buildQuoteMatchedRestraint({
+    quoteHasResourcePath,
+    quoteHasContactRequest,
+    quoteNamesLostNextStep,
+    quoteNamesDemoRisk,
+    quoteNamesHexaPath,
+    quoteNamesNickPath,
+    quoteNamesSolutionGap,
+    quoteNamesMeeting,
+    hasOwner,
+  });
   const actionReason =
     hasContactRequest || hasMeetingStep
       ? "Ask the light next question now. Draft and lookup can wait until after the conversation."
@@ -1152,10 +1215,10 @@ function buildLocalPlan(userGoal, transcript, memoryQuotes, signalGate = null) {
         ? "They may know a person or resource path for the project."
         : hasServiceNeed
         ? "They have not found a good service provider or solution yet."
-        : "Event follow-up is hard to do consistently.",
+        : "The next step disappears after useful conversations.",
       who_seems_closest: hasOwner
         ? hasContactRequest
-          ? "HX负责人 / Nick"
+          ? "Named contact"
           : "Person they named"
         : hasResourcePath
           ? "Hexa person / resource owner"
@@ -1164,12 +1227,88 @@ function buildLocalPlan(userGoal, transcript, memoryQuotes, signalGate = null) {
       still_unknown: hasResourcePath
         ? "Which person or resource to follow first."
         : hasContactRequest
-        ? "The right email and whether Nick can help."
+        ? "The right contact route."
         : hasOwner
           ? "What they already tried last time."
-          : "Who handles this after the event.",
+          : "What one action would save the moment.",
     },
   };
+}
+
+function buildQuoteMatchedCue(context) {
+  if (context.quoteNamesNickPath) {
+    return "Nick may know the path. Ask for the best contact route before drafting anything.";
+  }
+
+  if (context.quoteHasContactRequest) {
+    return "They named a contact route. Ask what to mention before drafting anything.";
+  }
+
+  if (context.quoteNamesHexaPath || context.quoteHasResourcePath) {
+    return "They pointed to Hexa as a path. Ask who at Hexa and what to mention.";
+  }
+
+  if (context.quoteNamesLostNextStep) {
+    return "They named the real loss: the next step disappears. Ask what one action would save it.";
+  }
+
+  if (context.quoteNamesDemoRisk) {
+    return "They named the real risk. Ask who would care enough to try it next week.";
+  }
+
+  if (context.quoteNamesMeeting) {
+    return "They mentioned a meeting path. Ask who should be in the first conversation.";
+  }
+
+  if (context.hasOwner) {
+    return "They named someone close to it. Ask what that person would want to see first.";
+  }
+
+  if (context.quoteNamesSolutionGap) {
+    return "They named a gap in the current options. Ask what they have already tried.";
+  }
+
+  if (context.quoteNamesGenericProblem) {
+    return "They named a problem. Ask who feels it most when the event is over.";
+  }
+
+  return "Save this quote for later. Ask one light question before turning it into a task.";
+}
+
+function buildQuoteMatchedRestraint(context) {
+  if (context.quoteNamesNickPath) {
+    return "Not assuming Nick owns this yet.";
+  }
+
+  if (context.quoteHasContactRequest) {
+    return "Not assuming the contact detail is enough by itself.";
+  }
+
+  if (context.quoteNamesHexaPath || context.quoteHasResourcePath) {
+    return "Not assuming Hexa is the right owner yet.";
+  }
+
+  if (context.quoteNamesLostNextStep) {
+    return "Not assuming who owns the follow-up yet.";
+  }
+
+  if (context.quoteNamesDemoRisk) {
+    return "Not assuming anyone has agreed to help yet.";
+  }
+
+  if (context.quoteNamesMeeting) {
+    return "Not assuming they already agreed to meet.";
+  }
+
+  if (context.hasOwner) {
+    return "Not assuming they want to buy anything.";
+  }
+
+  if (context.quoteNamesSolutionGap) {
+    return "Not assuming a new tool is already wanted.";
+  }
+
+  return "Not assuming who owns this yet.";
 }
 
 function emptyPlan(userGoal) {

@@ -531,6 +531,10 @@ main {
   color: var(--ink);
   font-size: 12px;
   font-weight: 720;
+  transition:
+    color 160ms ease,
+    background 160ms ease,
+    padding 160ms ease;
 }
 
 .transcript-line p {
@@ -548,6 +552,49 @@ main {
 .transcript-line.is-live-draft {
   border-color: var(--line-strong);
   background: var(--white);
+}
+
+.transcript-line.has-speaker-name strong {
+  width: fit-content;
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: var(--speaker-bg, var(--green-soft));
+  color: var(--speaker-ink, #17462e);
+}
+
+.transcript-line[data-speaker-theme="gogo"] {
+  --speaker-bg: var(--blue-soft);
+  --speaker-ink: #16456f;
+}
+
+.transcript-line[data-speaker-theme="camille"] {
+  --speaker-bg: #fbe4d7;
+  --speaker-ink: #7a351c;
+}
+
+.transcript-line[data-speaker-theme="nick"] {
+  --speaker-bg: var(--amber-soft);
+  --speaker-ink: #5f4211;
+}
+
+.transcript-line[data-speaker-theme="slot-1"] {
+  --speaker-bg: var(--blue-soft);
+  --speaker-ink: #16456f;
+}
+
+.transcript-line[data-speaker-theme="slot-2"] {
+  --speaker-bg: #fbe4d7;
+  --speaker-ink: #7a351c;
+}
+
+.transcript-line[data-speaker-theme="other"] {
+  --speaker-bg: var(--green-soft);
+  --speaker-ink: #17462e;
+}
+
+.transcript-line.is-relabeling strong {
+  background: var(--amber-soft);
+  color: #5f4211;
 }
 
 .cue-stage {

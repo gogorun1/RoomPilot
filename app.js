@@ -5,7 +5,7 @@ const fallbackSeed = {
       person: "Sarah",
       company: "Station F",
       when: "Yesterday",
-      quote: "We're evaluating tools for event follow-up this quarter.",
+      quote: "After demo day, the next step disappears unless someone captures the exact quote.",
       x: 18,
       y: 28,
     },
@@ -22,105 +22,111 @@ const fallbackTimeline = {
     {
       id: "t1",
       speaker: "Heard",
-      text: "Hi, I’m Gogo. I’m building RoomPilot today: it helps me turn live conversations into the next useful move.",
-      at: 3200,
+      speakerId: "speaker_gogo",
+      text: "Hi, I’m Gogo. I’m building RoomPilot, a quiet assistant for live opportunity conversations.",
+      at: 3800,
     },
     {
       id: "t2",
       speaker: "Heard",
-      text: "I’m Camille. Nice to meet you. I work with founder programs around events, so I’ve seen this kind of problem a lot.",
-      at: 5400,
+      speakerId: "speaker_camille",
+      text: "I’m Camille. I work with founder programs around events, so this is exactly the room where that problem shows up.",
+      at: 9000,
     },
     {
       id: "t3",
-      speaker: "Gogo",
-      text: "Nice. How has the hackathon been for you so far? It’s a pretty intense room.",
-      at: 7800,
+      speaker: "Heard",
+      speakerId: "speaker_gogo",
+      text: "The simple pitch is: people leave useful conversations with no clear next move.",
+      at: 15000,
     },
     {
       id: "t4",
-      speaker: "Camille",
-      text: "Yeah, intense but good. I’ve had too much coffee already, but the projects are strong.",
-      at: 10200,
-    },
-    {
-      id: "t5",
-      speaker: "Gogo",
-      text: "I built this RoomPilot demo today, but I’m honestly not sure what the next step is after the hackathon. I don’t want it to just become another weekend project.",
-      at: 13200,
-    },
-    {
-      id: "t6",
-      speaker: "Camille",
-      text: "Yeah, that happens a lot. You get a demo working, everyone says it’s cool, and then Monday comes and nobody knows who to talk to.",
-      at: 16200,
+      speaker: "Heard",
+      speakerId: "speaker_camille",
+      text: "Right. The hard part is not meeting people; it is remembering the useful next step before the moment disappears.",
+      at: 21000,
       hero: true,
     },
     {
+      id: "t5",
+      speaker: "Heard",
+      speakerId: "speaker_gogo",
+      text: "That is the pain. Most tools summarize later; RoomPilot helps while the person is still here.",
+      at: 28500,
+    },
+    {
+      id: "t6",
+      speaker: "Heard",
+      speakerId: "speaker_camille",
+      text: "Then the product should show the exact quote, say what it is not assuming, and give one useful next move.",
+      at: 34500,
+    },
+    {
       id: "t7",
-      speaker: "Camille",
-      text: "The real risk is that the demo dies after the weekend.",
-      at: 18600,
+      speaker: "Heard",
+      speakerId: "speaker_gogo",
+      text: "What one action would save that moment in this room?",
+      at: 43000,
     },
     {
       id: "t8",
-      speaker: "Gogo",
-      text: "That is exactly what I’m worried about. Who do you think would actually care enough to try something like this next week?",
-      at: 24400,
+      speaker: "Heard",
+      speakerId: "speaker_camille",
+      text: "If someone says, ‘I’d talk to Hexa,’ capture that, then ask who at Hexa and what to mention.",
+      at: 50000,
+      evidence: true,
     },
     {
       id: "t9",
-      speaker: "Camille",
-      text: "I’d talk to someone at Hexa. They see a lot of founder meetings and event follow-up problems. There’s probably a team or partner there who would understand this immediately.",
-      at: 28600,
-      evidence: true,
+      speaker: "Heard",
+      speakerId: "speaker_gogo",
+      text: "So the tech path is simple: OpenAI Realtime turns speech into live text, Pioneer checks which quote is worth acting on, and RoomPilot turns it into one card.",
+      at: 58500,
     },
     {
       id: "t10",
-      speaker: "Gogo",
-      text: "Okay, that helps. Who at Hexa would be the right first person to talk to?",
-      at: 34800,
+      speaker: "Heard",
+      speakerId: "speaker_camille",
+      text: "And the memory graph matters only if it can connect this quote to something Sarah said yesterday.",
+      at: 66500,
     },
     {
       id: "t11",
-      speaker: "Camille",
-      text: "Maybe Nick. I don’t know if he owns this exactly, but he’d know who does. I can send you his email, or you can probably find him on LinkedIn.",
-      at: 38600,
-      evidence: true,
+      speaker: "Heard",
+      speakerId: "speaker_gogo",
+      text: "Right: OpenAI gives us the live words, Pioneer stops every sentence from becoming a card, audio is not stored, and the UI keeps the proof visible.",
+      at: 74500,
     },
     {
       id: "t12",
-      speaker: "Gogo",
-      text: "Amazing. I’ll keep it light. What should I ask him without sounding like I’m pitching too hard?",
-      at: 44400,
+      speaker: "Heard",
+      speakerId: "speaker_camille",
+      text: "That is the two-minute pitch: not another call summary, a proof-backed next-move layer for live rooms.",
+      at: 83500,
     },
     {
       id: "t13",
-      speaker: "Camille",
-      text: "Just say you tested it live at Tech Europe and want to know whether this helps founders avoid losing useful conversations after events.",
-      at: 48200,
-      evidence: true,
+      speaker: "Heard",
+      speakerId: "speaker_gogo",
+      text: "Perfect. That is exactly the story I want the judges to feel.",
+      at: 91000,
     },
     {
       id: "t14",
-      speaker: "Gogo",
-      text: "That’s perfect. Thanks, Camille. Good luck with the rest of the demos.",
-      at: 52200,
-    },
-    {
-      id: "t15",
-      speaker: "Camille",
-      text: "You too. I’ll send Nick’s contact later if I find the right one.",
-      at: 54800,
+      speaker: "Heard",
+      speakerId: "speaker_camille",
+      text: "Good. Now make the demo quiet enough that the proof does the selling.",
+      at: 96000,
     },
   ],
   events: [
     { type: "showSession", at: 2800 },
-    { type: "beat1", at: 19800 },
-    { type: "askQuestion", at: 23200 },
-    { type: "escalateMemory", at: 31000 },
-    { type: "beat2", at: 40800 },
-    { type: "showFinalMemory", at: 50000 },
+    { type: "beat1", at: 23800 },
+    { type: "askQuestion", at: 41000 },
+    { type: "escalateMemory", at: 53500 },
+    { type: "beat2", at: 69500 },
+    { type: "showFinalMemory", at: 87500 },
   ],
 };
 
@@ -151,6 +157,14 @@ let fallbackTranscribeInFlight = false;
 let fallbackPendingBlob = null;
 let lastFallbackTranscript = "";
 let liveTranscriptLines = [];
+const TURN_SPEAKER_COUNT = 2;
+let transcriptRecords = [];
+let transcriptRecordId = 0;
+let speakerIdentityMap = new Map();
+let speakerRoster = [];
+let turnSpeakerSlots = [];
+let nextTurnSpeakerSlotIndex = 0;
+let lastAssignedSpeaker = "";
 let plannerTimer = null;
 let plannerRequestId = 0;
 let lastPlannedTranscript = "";
@@ -173,7 +187,7 @@ const statusMessages = [
 const productStages = {
   waiting: {
     plannerState: "set before listening",
-    userGoal: "Find useful follow-up after Tech Europe.",
+    userGoal: "Turn this live room into one useful next move.",
     actionState: "waiting",
     actionReason: "Waiting for enough proof.",
     selectedAction: null,
@@ -182,7 +196,7 @@ const productStages = {
   },
   listening: {
     plannerState: "set before listening",
-    userGoal: "Find useful follow-up after Tech Europe.",
+    userGoal: "Turn this live room into one useful next move.",
     actionState: "quiet",
     actionReason: "",
     selectedAction: null,
@@ -191,68 +205,71 @@ const productStages = {
   },
   firstQuote: {
     plannerState: "set before listening",
-    userGoal: "Find useful follow-up after Tech Europe.",
+    userGoal: "Turn this live room into one useful next move.",
     actionState: "one safe move",
     actionReason:
-      "Turn the shared hackathon fear into one useful question.",
+      "Turn the lost-next-step pain into one useful question.",
     selectedAction: "Ask",
     actions: ["Ask", "Save", "Compare", "Draft later", "Find public context"],
     queue: [
       {
-        title: "Ask who would try it next week.",
+        title: "Ask what one action would save it.",
         person: "Camille",
-        detail: "Find the person who would care before the demo becomes a weekend artifact.",
-        proof: "The real risk is that the demo dies after the weekend.",
+        detail: "Move from the abstract pain to a concrete next move in this room.",
+        proof:
+          "The hard part is not meeting people; it is remembering the useful next step before the moment disappears.",
       },
     ],
   },
   updated: {
     plannerState: "set before listening",
-    userGoal: "Find useful follow-up after Tech Europe.",
+    userGoal: "Turn this live room into one useful next move.",
     actionState: "first path",
-    actionReason: "They pointed to Hexa. Ask for the first person before jumping to email.",
+    actionReason: "They used Hexa as the example path. Ask for the person and wording before drafting anything.",
     selectedAction: "Ask",
     actions: ["Ask", "Save", "Draft later", "Find public context", "Reminder"],
     queue: [
       {
-        title: "Ask who at Hexa to start with.",
+        title: "Ask who at Hexa and what to mention.",
         person: "Hexa",
-        detail: "Get the name first. Email or LinkedIn can wait until after the conversation.",
-        proof: "I’d talk to someone at Hexa.",
+        detail: "Get the next move while Camille is still in front of you.",
+        proof:
+          "If someone says, ‘I’d talk to Hexa,’ capture that, then ask who at Hexa and what to mention.",
       },
       {
         title: "Save Hexa as the first path.",
         person: "Hexa",
-        detail: "Keep the reason attached: they see founder meetings and event follow-up problems.",
-        proof: "They see a lot of founder meetings and event follow-up problems.",
+        detail: "Keep the exact quote attached so the follow-up does not become a vague reminder.",
+        proof: "I’d talk to Hexa.",
       },
     ],
   },
   bridge: {
     plannerState: "set before listening",
-    userGoal: "Find useful follow-up after Tech Europe.",
-    actionState: "contact path",
-    actionReason: "Nick is a plausible path, but the speaker has not confirmed he owns this.",
-    selectedAction: "Draft later",
+    userGoal: "Turn this live room into one useful next move.",
+    actionState: "memory link",
+    actionReason: "Sarah named the same lost-next-step problem yesterday. Show both quotes before suggesting an intro.",
+    selectedAction: "Compare",
     actions: ["Ask", "Save", "Draft later", "Find public context", "Reminder"],
     queue: [
       {
-        title: "Save Nick as the next follow-up.",
-        person: "Nick",
-        detail: "Ask for the best contact route, then draft a short note after the conversation.",
-        proof: "Maybe Nick. I don’t know if he owns this exactly, but he’d know who does.",
+        title: "Ask Camille if Sarah is worth comparing notes with.",
+        person: "Sarah",
+        detail: "Use the memory graph only because both people used the same lost-next-step language.",
+        proof: "After demo day, the next step disappears unless someone captures the exact quote.",
       },
       {
-        title: "Find Nick after the session.",
-        person: "Nick",
-        detail: "Use email if they send it, otherwise search LinkedIn after the conversation.",
-        proof: "I can send you his email, or you can probably find him on LinkedIn.",
+        title: "Save the quote-backed memory link.",
+        person: "Camille",
+        detail: "Keep both quotes visible so the graph does not look like a black box.",
+        proof:
+          "The hard part is not meeting people; it is remembering the useful next step before the moment disappears.",
       },
       {
-        title: "Draft a soft follow-up note to Nick.",
-        person: "Nick",
-        detail: "Ask for feedback, not a sale.",
-        proof: "Say you tested it live at Tech Europe.",
+        title: "Draft a short compare-notes note later.",
+        person: "Sarah",
+        detail: "Ask for a lightweight exchange, not a sales call.",
+        proof: "Sarah said the same next-step problem yesterday.",
       },
     ],
   },
@@ -300,7 +317,7 @@ const els = {
   stopSession: document.querySelector("#stopSession"),
 };
 
-const userGoal = "Find useful follow-up after Tech Europe.";
+const userGoal = "Turn this live room into one useful next move.";
 
 async function loadData() {
   try {
@@ -415,12 +432,19 @@ function resetDemo() {
   setHidden(els.actionPalette, true);
   setHidden(els.actionQueue, true);
   setHidden(els.nextCard, true);
-  els.nextCardTitle.textContent = "Ask who at Hexa to start with.";
+  els.nextCardTitle.textContent = "Ask who at Hexa and what to mention.";
   els.nextCardBody.textContent =
-    "Get the name first. Email or LinkedIn can wait until after the conversation.";
+    "Keep the action tied to Camille's exact quote before drafting anything.";
   setSessionActive(false);
   els.graphWrap.classList.remove("is-live", "is-bridge");
   liveTranscriptLines = [];
+  transcriptRecords = [];
+  transcriptRecordId = 0;
+  speakerIdentityMap = new Map();
+  speakerRoster = [];
+  turnSpeakerSlots = [];
+  nextTurnSpeakerSlotIndex = 0;
+  lastAssignedSpeaker = "";
   liveDraftPlannerText = "";
   liveDraftPlannerLineActive = false;
   rightActionCards = [];
@@ -445,8 +469,14 @@ function startClock() {
   clockTimer = window.setInterval(() => {
     const elapsed = Math.max(0, Date.now() - demoStartedAt);
     const seconds = Math.floor(elapsed / 1000);
-    els.demoClock.textContent = `00:${String(seconds).padStart(2, "0")}`;
+    els.demoClock.textContent = formatClock(seconds);
   }, 250);
+}
+
+function formatClock(totalSeconds) {
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
 }
 
 function showSession() {
@@ -475,20 +505,498 @@ function addTranscript(line) {
 
   const speaker = document.createElement("strong");
   const text = document.createElement("p");
-  speaker.textContent = line.speaker;
   text.textContent = line.text;
+  const record = registerTranscriptRecord(line, item, speaker);
+  const initialLabel = resolveSpeakerLabel(record);
+  applySpeakerLabel(record, initialLabel, {
+    source: isPlaceholderSpeaker(initialLabel) ? "placeholder" : "known",
+    updateTurn: true,
+  });
   item.append(speaker, text);
 
   els.transcriptList.appendChild(item);
   els.transcriptList.scrollTop = els.transcriptList.scrollHeight;
+  learnSpeakerIdentity(record);
+
+  return record;
+}
+
+function registerTranscriptRecord(line, item, speakerElement) {
+  const record = {
+    id: line.id || `transcript_${++transcriptRecordId}`,
+    speakerId: line.speakerId || line.speaker_id || "",
+    speakerSlotId: line.speakerSlotId || line.speaker_slot_id || "",
+    originalSpeaker: line.speaker || "Heard",
+    text: normalizeTranscript(line.text),
+    element: item,
+    speakerElement,
+    assignedSpeaker: "",
+    speakerSource: "placeholder",
+  };
+
+  item.dataset.speakerId = record.speakerId;
+  if (record.speakerSlotId) {
+    item.dataset.speakerSlot = record.speakerSlotId;
+  }
+  transcriptRecords.push(record);
+  return record;
+}
+
+function resolveSpeakerLabel(record) {
+  if (record.speakerId && speakerIdentityMap.has(record.speakerId)) {
+    return speakerIdentityMap.get(record.speakerId).name;
+  }
+
+  return record.originalSpeaker || "Heard";
+}
+
+function learnSpeakerIdentity(record) {
+  const identity = extractSelfIntroduction(record.text);
+
+  if (!identity) {
+    if (assignSpeakerFromTurn(record)) return;
+    inferSpeakerFromRoster(record);
+    return;
+  }
+
+  rememberSpeakerIdentity(identity, record);
+
+  if (!record.speakerId) {
+    if (assignSpeakerFromTurn(record, identity, {
+      delay: 520,
+      highlight: true,
+      source: "self_intro",
+      updateTurn: true,
+    })) {
+      return;
+    }
+
+    applySpeakerLabel(record, identity.name, {
+      delay: 520,
+      highlight: true,
+      source: "self_intro",
+      updateTurn: true,
+    });
+    return;
+  }
+
+  speakerIdentityMap.set(record.speakerId, {
+    ...identity,
+    speakerId: record.speakerId,
+    sourceQuote: record.text,
+    updatedAt: new Date().toISOString(),
+  });
+
+  transcriptRecords
+    .filter((candidate) => candidate.speakerId === record.speakerId)
+    .forEach((candidate) => {
+      const delay =
+        candidate.id === record.id && isPlaceholderSpeaker(candidate.originalSpeaker) ? 520 : 0;
+      applySpeakerLabel(candidate, identity.name, {
+        delay,
+        highlight: true,
+        source: "self_intro",
+        updateTurn: candidate.id === record.id,
+      });
+    });
+}
+
+function applySpeakerLabel(record, label, options = {}) {
+  if (!record?.speakerElement || !label) return;
+
+  record.assignedSpeaker = label;
+  record.speakerSource = options.source || record.speakerSource || "known";
+
+  if (options.updateTurn && !isPlaceholderSpeaker(label)) {
+    lastAssignedSpeaker = label;
+  }
+
+  const apply = () => {
+    if (options.delay && !record.speakerElement.isConnected) return;
+
+    record.speakerElement.textContent = label;
+    record.element.classList.toggle("has-speaker-name", !isPlaceholderSpeaker(label));
+    record.element.dataset.speakerSource = record.speakerSource;
+    if (isPlaceholderSpeaker(label)) {
+      delete record.element.dataset.speakerTheme;
+    } else {
+      record.element.dataset.speakerTheme = getSpeakerTheme(label, record);
+    }
+
+    if (options.highlight) {
+      record.element.classList.add("is-relabeling");
+      window.setTimeout(() => {
+        record.element.classList.remove("is-relabeling");
+      }, 900);
+    }
+  };
+
+  if (options.delay) {
+    window.setTimeout(apply, options.delay);
+    return;
+  }
+
+  apply();
+}
+
+function isPlaceholderSpeaker(label) {
+  return /^(heard|speaker|unknown)$/i.test(String(label || "").trim());
+}
+
+function getSpeakerTheme(label, record = null) {
+  const normalized = normalizeSpeakerName(label);
+
+  if (/^gogo$/.test(normalized)) return "gogo";
+  if (/^camill?e$/.test(normalized)) return "camille";
+  if (/^nick$/.test(normalized)) return "nick";
+  if (record?.speakerSlotId) return record.speakerSlotId;
+
+  const slotMatch = normalized.match(/^speaker\s*(\d+)$/);
+  if (slotMatch?.[1]) return `slot-${slotMatch[1]}`;
+
+  return "other";
+}
+
+function rememberSpeakerIdentity(identity, record) {
+  const normalizedName = normalizeSpeakerName(identity.name);
+  if (!normalizedName) return null;
+
+  const existing = speakerRoster.find((speaker) => speaker.normalizedName === normalizedName);
+
+  if (existing) {
+    existing.sourceQuote = record.text;
+    existing.updatedAt = new Date().toISOString();
+    return existing;
+  }
+
+  const speaker = {
+    name: identity.name,
+    normalizedName,
+    role: resolveSpeakerRole(identity.name),
+    source: identity.source,
+    confidence: identity.confidence,
+    sourceQuote: record.text,
+    createdAt: new Date().toISOString(),
+  };
+
+  speakerRoster.push(speaker);
+  return speaker;
+}
+
+function resolveSpeakerRole(name) {
+  if (/^gogo$/i.test(name)) return "user";
+  return "other";
+}
+
+function normalizeSpeakerName(name) {
+  return String(name || "")
+    .trim()
+    .toLowerCase();
+}
+
+function assignSpeakerFromTurn(record, identity = null, options = {}) {
+  if (!shouldAssignSpeakerByTurn(record)) return null;
+
+  const slot = pickTurnSpeakerSlot(identity);
+  const source = options.source || identity?.source || slot.source || "turn_slot";
+
+  record.speakerSlotId = slot.id;
+  record.element.dataset.speakerSlot = slot.id;
+  if (!slot.recordIds.includes(record.id)) {
+    slot.recordIds.push(record.id);
+  }
+
+  if (identity?.name) {
+    applyTurnSpeakerIdentity(slot, identity, record, {
+      ...options,
+      source,
+    });
+  } else {
+    applySpeakerLabel(record, getTurnSpeakerLabel(slot), {
+      source,
+      updateTurn: true,
+      ...options,
+    });
+  }
+
+  advanceTurnSpeakerSlot(slot);
+  return slot;
+}
+
+function shouldAssignSpeakerByTurn(record) {
+  return Boolean(record && isPlaceholderSpeaker(record.originalSpeaker) && !record.speakerId);
+}
+
+function pickTurnSpeakerSlot(identity = null) {
+  const normalizedName = normalizeSpeakerName(identity?.name);
+  const namedSlot = normalizedName
+    ? turnSpeakerSlots.find((slot) => slot.normalizedName === normalizedName)
+    : null;
+
+  if (namedSlot) return namedSlot;
+  return ensureTurnSpeakerSlot(nextTurnSpeakerSlotIndex);
+}
+
+function ensureTurnSpeakerSlot(index) {
+  const safeIndex = Math.max(0, index % TURN_SPEAKER_COUNT);
+
+  while (turnSpeakerSlots.length <= safeIndex) {
+    const number = turnSpeakerSlots.length + 1;
+    turnSpeakerSlots.push({
+      id: `slot-${number}`,
+      fallbackLabel: `Speaker ${number}`,
+      name: "",
+      normalizedName: "",
+      source: "turn_slot",
+      confidence: "low",
+      sourceQuote: "",
+      recordIds: [],
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    });
+  }
+
+  return turnSpeakerSlots[safeIndex];
+}
+
+function advanceTurnSpeakerSlot(slot) {
+  const index = Math.max(0, turnSpeakerSlots.findIndex((candidate) => candidate.id === slot.id));
+  nextTurnSpeakerSlotIndex = (index + 1) % TURN_SPEAKER_COUNT;
+}
+
+function applyTurnSpeakerIdentity(slot, identity, currentRecord, options = {}) {
+  slot.name = identity.name;
+  slot.normalizedName = normalizeSpeakerName(identity.name);
+  slot.source = identity.source || options.source || "self_intro";
+  slot.confidence = identity.confidence || "medium";
+  slot.sourceQuote = currentRecord.text;
+  slot.updatedAt = new Date().toISOString();
+
+  transcriptRecords
+    .filter((candidate) => candidate.speakerSlotId === slot.id)
+    .forEach((candidate) => {
+      const isCurrent = candidate.id === currentRecord.id;
+      applySpeakerLabel(candidate, getTurnSpeakerLabel(slot), {
+        source: options.source || slot.source,
+        highlight: options.highlight || isCurrent,
+        delay: isCurrent ? options.delay : 0,
+        updateTurn: isCurrent,
+      });
+    });
+}
+
+function getTurnSpeakerLabel(slot) {
+  return slot?.name || slot?.fallbackLabel || "Heard";
+}
+
+function peekNextTurnSpeakerSlot() {
+  return ensureTurnSpeakerSlot(nextTurnSpeakerSlotIndex);
+}
+
+function peekNextTurnSpeakerLabel(text = "") {
+  const identity = extractSelfIntroduction(text);
+
+  if (identity?.name) return identity.name;
+  return getTurnSpeakerLabel(peekNextTurnSpeakerSlot());
+}
+
+function inferSpeakerFromRoster(record) {
+  if (!isPlaceholderSpeaker(record.originalSpeaker)) return null;
+  if (record.speakerId) return null;
+
+  const inferred = inferLikelySpeaker(record.text);
+
+  if (!inferred) return null;
+
+  applySpeakerLabel(record, inferred.name, {
+    highlight: inferred.confidence === "medium",
+    source: inferred.source,
+    updateTurn: true,
+  });
+
+  return inferred;
+}
+
+function inferLikelySpeaker(text) {
+  const userSpeaker = getUserSpeaker();
+  const otherSpeaker = getOtherSpeaker(userSpeaker);
+
+  if (!userSpeaker || !otherSpeaker) return null;
+
+  const clean = normalizeTranscript(text);
+  const lower = clean.toLowerCase();
+  const score = {
+    [userSpeaker.name]: 0,
+    [otherSpeaker.name]: 0,
+  };
+
+  if (isLikelyUserProjectLine(clean)) {
+    score[userSpeaker.name] += 3;
+  }
+
+  if (isLikelyOtherPromptLine(clean)) {
+    score[otherSpeaker.name] += 3;
+  }
+
+  if (isLikelyOtherAdviceLine(clean)) {
+    score[otherSpeaker.name] += 3;
+  }
+
+  if (isQuestionLine(clean) && score[userSpeaker.name] === 0 && score[otherSpeaker.name] === 0) {
+    const alternate = lastAssignedSpeaker === userSpeaker.name ? otherSpeaker : userSpeaker;
+    score[alternate.name] += 1.2;
+  }
+
+  if (score[userSpeaker.name] === 0 && score[otherSpeaker.name] === 0 && lastAssignedSpeaker) {
+    const alternate = lastAssignedSpeaker === userSpeaker.name ? otherSpeaker : userSpeaker;
+    score[alternate.name] += 0.8;
+  }
+
+  const winner =
+    score[userSpeaker.name] >= score[otherSpeaker.name] ? userSpeaker : otherSpeaker;
+  const loser = winner === userSpeaker ? otherSpeaker : userSpeaker;
+
+  if (score[winner.name] < 0.8 || score[winner.name] - score[loser.name] < 0.5) {
+    return null;
+  }
+
+  return {
+    name: winner.name,
+    confidence: score[winner.name] >= 3 ? "medium" : "low",
+    source: score[winner.name] >= 3 ? "content_guess" : "turn_guess",
+  };
+}
+
+function getUserSpeaker() {
+  return (
+    speakerRoster.find((speaker) => speaker.role === "user") ||
+    speakerRoster.find((speaker) => /^gogo$/i.test(speaker.name))
+  );
+}
+
+function getOtherSpeaker(userSpeaker) {
+  return speakerRoster.find((speaker) => speaker.name !== userSpeaker?.name) || null;
+}
+
+function isLikelyUserProjectLine(text) {
+  return (
+    /\b(?:we are|we're|we’re|we are building|we're building|we’re building|i built|i'm building|i’m building|my demo|our demo|our product|our platform|what should i|how can i introduce|i don't want|i’m worried|i'm worried|i’ll keep|i'll keep|i need|i want|i'm making|i’m making)\b/i.test(text) ||
+    /(我们|我).*(做|建|介绍|项目|demo|演示|担心|需要|想|怎么|不知道)/u.test(text) ||
+    /(我的|我们的).*(项目|产品|demo|演示)/u.test(text)
+  );
+}
+
+function isLikelyOtherPromptLine(text) {
+  return (
+    /\b(?:nice to meet you too|what are you (?:doing|making|building)|what do you (?:do|make|build)|tell me about|how can i help|what brings you)\b/i.test(text) ||
+    /(你|你们).*(今天|现在|在|做|建|介绍|项目|demo|需要|想|什么)/u.test(text)
+  );
+}
+
+function isLikelyOtherAdviceLine(text) {
+  return (
+    /\b(?:i'd|i’d|i would|you should|you can|maybe|i can send|i'll send|i’ll send|talk to someone|find him|good luck)\b/i.test(text) ||
+    /(我建议|你可以|可以去|联系方式|邮箱|联系人|我发给你|我可以发)/u.test(text)
+  );
+}
+
+function isQuestionLine(text) {
+  return /[?？]$/.test(text.trim()) || /\b(?:what|how|who|where|when|why|can|could|would|should|do|does|did|is|are)\b/i.test(text);
+}
+
+function extractSelfIntroduction(text) {
+  const clean = normalizeTranscript(text);
+  const patterns = [
+    /\b(?:I am|I'm|I’m|My name is|This is)\s+([A-Z][A-Za-zÀ-ÖØ-öø-ÿ'’-]{1,30}(?:\s+[A-Z][A-Za-zÀ-ÖØ-öø-ÿ'’-]{1,30}){0,2})\b/u,
+    /\b(?:Je m'appelle|Je m’appelle|Je suis|Moi c'est|Moi c’est)\s+([A-ZÀ-ÖØ-Þ][\p{L}'’-]{1,30}(?:\s+[A-ZÀ-ÖØ-Þ][\p{L}'’-]{1,30}){0,2})\b/u,
+    /(?:我叫|我叫做)\s*([\u3400-\u9fff]{2,4}|[A-Za-z][A-Za-z.'’-]{1,30})/u,
+    /(?:我是)\s*([A-Za-z][A-Za-z.'’-]{1,30}|[\u3400-\u9fff]{2,4})(?:[，,。.!！?？]|\s|$)/u,
+  ];
+
+  for (const pattern of patterns) {
+    const match = clean.match(pattern);
+    const name = cleanPersonName(match?.[1]);
+
+    if (name) {
+      return {
+        name,
+        company: extractIntroducedCompany(clean),
+        confidence: "medium",
+        source: "self_intro",
+      };
+    }
+  }
+
+  return null;
+}
+
+function cleanPersonName(value) {
+  const name = String(value || "")
+    .replace(/[.,!?。！？，].*$/u, "")
+    .replace(/\b(?:from|at|with|and)\b.*$/iu, "")
+    .trim();
+
+  if (!name || name.length > 40) return "";
+
+  const lower = name.toLowerCase();
+  const rejected = new Set([
+    "building",
+    "honestly",
+    "not",
+    "sure",
+    "happy",
+    "looking",
+    "working",
+    "trying",
+    "another",
+    "一个",
+    "这边",
+    "这个",
+  ]);
+
+  return rejected.has(lower) ? "" : name;
+}
+
+function extractIntroducedCompany(text) {
+  const fromMatch = text.match(
+    /\bfrom\s+([A-Z][A-Za-z0-9&.'’-]*(?:\s+[A-Z][A-Za-z0-9&.'’-]*){0,3})\b/u
+  );
+
+  if (fromMatch?.[1]) return fromMatch[1].trim();
+
+  const chineseMatch = text.match(/(?:来自|在)\s*([\u3400-\u9fffA-Za-z0-9&.'’-]{2,18})/u);
+  return chineseMatch?.[1]?.trim() || "";
+}
+
+function finalizeLiveDraftTranscript(text) {
+  if (!liveDraftLine) return null;
+
+  const speakerElement = liveDraftLine.querySelector("strong");
+  const record = registerTranscriptRecord(
+    {
+      speaker: "Heard",
+      text,
+    },
+    liveDraftLine,
+    speakerElement
+  );
+
+  const initialLabel = resolveSpeakerLabel(record);
+  applySpeakerLabel(record, initialLabel, {
+    source: isPlaceholderSpeaker(initialLabel) ? "placeholder" : "known",
+    updateTurn: true,
+  });
+  learnSpeakerIdentity(record);
+  return record;
 }
 
 function addLiveTranscript(text, options = {}) {
   const normalized = normalizeTranscript(text);
   if (!normalized) return;
+  let record = options.record || null;
 
   if (options.render !== false) {
-    addTranscript({
+    record = addTranscript({
       speaker: "Heard",
       text: normalized,
     });
@@ -496,13 +1004,24 @@ function addLiveTranscript(text, options = {}) {
 
   addPlannerLine(
     {
-      speaker: "Heard",
+      speaker: getPlannerSpeakerLabel(record, normalized),
       text: normalized,
     },
     {
       finalizeDraft: options.render === false,
     }
   );
+}
+
+function getPlannerSpeakerLabel(record, text) {
+  if (record?.assignedSpeaker && !isPlaceholderSpeaker(record.assignedSpeaker)) {
+    return record.assignedSpeaker;
+  }
+
+  const identity = extractSelfIntroduction(text);
+  if (identity?.name) return identity.name;
+
+  return peekNextTurnSpeakerLabel(text) || inferLikelySpeaker(text)?.name || "Heard";
 }
 
 function addPlannerLine(line, options = {}) {
@@ -512,6 +1031,7 @@ function addPlannerLine(line, options = {}) {
   const latestLine = liveTranscriptLines[liveTranscriptLines.length - 1];
 
   if (options.finalizeDraft && liveDraftPlannerLineActive && latestLine?.isDraft) {
+    latestLine.speaker = line.speaker || latestLine.speaker || "Heard";
     latestLine.text = normalized;
     latestLine.at = new Date().toISOString();
     latestLine.isDraft = false;
@@ -523,6 +1043,7 @@ function addPlannerLine(line, options = {}) {
 
   if (options.replaceDraft) {
     if (liveDraftPlannerLineActive && latestLine?.isDraft) {
+      latestLine.speaker = line.speaker || latestLine.speaker || "Heard";
       latestLine.text = normalized;
       latestLine.at = new Date().toISOString();
     } else {
@@ -889,16 +1410,16 @@ function renderBridgeCueFromPlan(plan) {
   const notClaiming = els.beat2Cue.querySelector(".not-claiming");
   const confidence = els.beat2Cue.querySelector(".confidence");
 
-  quoteBlocks[0].querySelector(".eyebrow").textContent = "Earlier / Camille";
+  quoteBlocks[0].querySelector(".eyebrow").textContent = "Earlier / Sarah";
   quoteBlocks[0].querySelector("blockquote").textContent = quoteWithMarks(
-    "The real risk is that the demo dies after the weekend."
+    "After demo day, the next step disappears unless someone captures the exact quote."
   );
   quoteBlocks[1].querySelector(".eyebrow").textContent = "Right now / Camille";
   quoteBlocks[1].querySelector("blockquote").textContent = quoteWithMarks(currentQuote);
 
   cueText.textContent =
-    "Nick may know the path. Ask for the best contact route before drafting anything.";
-  notClaiming.textContent = "Not assuming Nick owns this yet.";
+    "Sarah described the same lost-next-step problem. Worth asking Camille if they should compare notes.";
+  notClaiming.textContent = "This only links two quotes. It does not assume they know each other.";
   confidence.textContent = `Confidence: ${plan.confidence || "medium"}`;
   confidence.classList.remove("low", "medium", "high");
   confidence.classList.add(plan.confidence || "medium");
@@ -910,13 +1431,13 @@ function renderBridgeCueFromPlan(plan) {
 
 function findCurrentBridgeQuote(plan) {
   const current = liveTranscriptLines.find((line) =>
-    /nick|email|linkedin|hexa|contact|owns this/i.test(line.text || "")
+    /hard part|next step|moment disappears|useful next move|clear next move/i.test(line.text || "")
   );
 
   return (
     current?.text ||
     plan.evidence_quote ||
-    "Maybe Nick. I don’t know if he owns this exactly, but he’d know who does."
+    "The hard part is not meeting people; it is remembering the useful next step before the moment disappears."
   );
 }
 
@@ -977,11 +1498,11 @@ function showBeat1() {
   renderProductStage("firstQuote");
   updateMemory({
     state: "first quote",
-    need: "The demo might die after the weekend.",
+    need: "The next step disappears after useful conversations.",
     owner: "Not named yet.",
-    timing: "Not named yet.",
-    unknown: "Who would care enough to try it next week.",
-    note: "Ask who would actually care before asking for contact details.",
+    timing: "While the person is still here.",
+    unknown: "What one action would save the moment.",
+    note: "The card waits for a quote before suggesting anything.",
   });
 }
 
@@ -989,11 +1510,11 @@ function showAskQuestion() {
   renderProductStage("firstQuote");
   updateMemory({
     state: "question asked",
-    need: "The demo might die after the weekend.",
+    need: "The next step disappears after useful conversations.",
     owner: "Not named yet.",
-    timing: "Not named yet.",
-    unknown: "Who would care enough to try it next week.",
-    note: "Asking who would care enough to try it.",
+    timing: "While the person is still here.",
+    unknown: "Which next move is concrete enough to act on.",
+    note: "Asking for one action, not a summary.",
   });
 }
 
@@ -1002,11 +1523,11 @@ function escalateMemory() {
   renderProductStage("updated");
   updateMemory({
     state: "updated",
-    need: "Hexa may be the first path.",
-    owner: "Someone at Hexa",
-    timing: "Next week",
-    unknown: "Who at Hexa to start with.",
-    note: "The card changed only after Hexa was named.",
+    need: "Hexa is named as the example path.",
+    owner: "Not named yet.",
+    timing: "After this conversation.",
+    unknown: "Who at Hexa and what to mention.",
+    note: "The card changes only after the Hexa quote appears.",
   });
 }
 
@@ -1016,44 +1537,44 @@ function showBeat2() {
   setHidden(els.evidenceCapture, true);
   setHidden(els.beat2Cue, false);
   setHidden(els.nextCard, false);
-  els.nextCardTitle.textContent = "Save Nick as the next follow-up.";
+  els.nextCardTitle.textContent = "Ask Camille if Sarah is worth comparing notes with.";
   els.nextCardBody.textContent =
-    "Ask for the best contact route, then draft a short note after the conversation.";
+    "Use the graph only because Sarah and Camille both described the same lost-next-step problem.";
   els.graphWrap.classList.add("is-bridge");
   renderProductStage("bridge");
   updateMemory({
-    state: "contact path",
-    need: "Hexa may be the first path.",
-    owner: "Nick may know who owns this.",
-    timing: "After Tech Europe",
-    unknown: "Whether Nick is the right person.",
-    note: "Email or LinkedIn can wait until after the conversation.",
+    state: "memory link",
+    need: "Two people described the same lost-next-step problem.",
+    owner: "Sarah and Camille",
+    timing: "After this session.",
+    unknown: "Whether they want to compare notes.",
+    note: "The graph only speaks because two visible quotes match.",
   });
 }
 
 function showFinalMemory() {
   setHidden(els.nextCard, false);
-  els.nextCardTitle.textContent = "Draft a soft follow-up note to Nick.";
+  els.nextCardTitle.textContent = "Draft a short compare-notes note later.";
   els.nextCardBody.textContent =
-    "Say you tested it live at Tech Europe and ask whether it helps founders keep useful conversations from getting lost.";
+    "Reference the two exact quotes and ask whether Camille wants to compare notes with Sarah.";
   renderProductStage("bridge");
   addRightActionCard({
     type: "Draft later",
-    person: "Nick",
-    title: "Draft a soft follow-up note to Nick.",
-    body: "Say you tested it live at Tech Europe and ask whether it helps founders keep useful conversations from getting lost.",
+    person: "Sarah",
+    title: "Draft a short compare-notes note later.",
+    body: "Reference the two exact quotes and ask whether Camille wants to compare notes with Sarah.",
     proof:
-      "Just say you tested it live at Tech Europe and want to know whether this helps founders avoid losing useful conversations after events.",
-    reason: "Not assuming Nick owns this yet.",
+      "After demo day, the next step disappears unless someone captures the exact quote.",
+    reason: "Not assuming Sarah and Camille know each other yet.",
     queued: [],
   });
   updateMemory({
     state: "ready",
-    need: "Keep the demo from becoming a weekend project.",
-    owner: "Nick may know the right Hexa path.",
-    timing: "After Tech Europe",
-    unknown: "Whether Nick is the owner or the bridge.",
-    note: "Draft a soft note after the conversation.",
+    need: "Turn a live room into one useful next move.",
+    owner: "Gogo",
+    timing: "After the demo.",
+    unknown: "Whether Camille wants the Sarah intro.",
+    note: "Draft a proof-backed note after the conversation.",
   });
 }
 
@@ -1080,41 +1601,45 @@ async function buildProofPayload() {
       audio_stored: false,
       mode: "replay_demo_with_pioneer_smoke_proof",
     },
+    speaker_labels: buildSpeakerLabelProof(),
     evidence: [
       {
-        id: "evidence_weekend_risk",
+        id: "evidence_lost_next_step",
         speaker: "Camille",
-        quote: "The real risk is that the demo dies after the weekend.",
+        quote:
+          "The hard part is not meeting people; it is remembering the useful next step before the moment disappears.",
       },
       {
         id: "evidence_hexa_path",
         speaker: "Camille",
-        quote: "I’d talk to someone at Hexa.",
-      },
-      {
-        id: "evidence_nick_contact",
-        speaker: "Camille",
-        quote: "Maybe Nick. I don’t know if he owns this exactly, but he’d know who does.",
-      },
-      {
-        id: "evidence_soft_note",
-        speaker: "Camille",
         quote:
-          "Say you tested it live at Tech Europe and want to know whether this helps founders avoid losing useful conversations after events.",
+          "If someone says, ‘I’d talk to Hexa,’ capture that, then ask who at Hexa and what to mention.",
+      },
+      {
+        id: "evidence_sarah_prior",
+        speaker: "Sarah",
+        quote: "After demo day, the next step disappears unless someone captures the exact quote.",
+      },
+      {
+        id: "evidence_tech_path",
+        speaker: "Gogo",
+        quote:
+          "So the tech path is simple: OpenAI Realtime turns speech into live text, Pioneer checks which quote is worth acting on, and RoomPilot turns it into one card.",
       },
     ],
     visible_cues: [
       {
-        cue: "They named the real risk. Ask who would care enough to try this next week.",
-        not_inferred: "Not assuming anyone has agreed to help yet.",
+        cue: "They named the real loss: the next step disappears. Ask what one action would save it.",
+        not_inferred: "Not assuming who owns the follow-up yet.",
         confidence: "high",
-        evidence_ids: ["evidence_weekend_risk"],
+        evidence_ids: ["evidence_lost_next_step"],
       },
       {
-        cue: "Nick may know the path. Ask for the best contact route before drafting anything.",
-        not_inferred: "Not assuming Nick owns this yet.",
+        cue:
+          "Sarah described the same lost-next-step problem. Worth asking Camille if they should compare notes.",
+        not_inferred: "This only links two quotes. It does not assume they know each other.",
         confidence: "medium",
-        evidence_ids: ["evidence_nick_contact"],
+        evidence_ids: ["evidence_sarah_prior", "evidence_lost_next_step"],
       },
     ],
     memory: {
@@ -1122,10 +1647,47 @@ async function buildProofPayload() {
       who_seems_closest_to_it: els.ownerText.textContent,
       when_it_matters: els.timingText.textContent,
       still_unknown: els.unknownText.textContent,
-      next_thing_to_do: "Draft a soft follow-up note to Nick.",
+      next_thing_to_do: "Draft a short compare-notes note later.",
     },
     pioneer_proof: pioneerProof,
   };
+}
+
+function buildSpeakerLabelProof() {
+  const labels = [
+    ...Array.from(speakerIdentityMap.values()).map((identity) => ({
+      speaker_id: identity.speakerId,
+      name: identity.name,
+      company: identity.company || null,
+      source: identity.source,
+      confidence: identity.confidence,
+      source_quote: identity.sourceQuote,
+    })),
+    ...speakerRoster.map((speaker) => ({
+      speaker_id: null,
+      name: speaker.name,
+      company: null,
+      source: speaker.source,
+      confidence: speaker.confidence,
+      source_quote: speaker.sourceQuote,
+    })),
+    ...turnSpeakerSlots.map((slot) => ({
+      speaker_id: slot.id,
+      name: getTurnSpeakerLabel(slot),
+      company: null,
+      source: slot.source,
+      confidence: slot.confidence,
+      source_quote: slot.sourceQuote,
+    })),
+  ];
+
+  const seen = new Set();
+  return labels.filter((label) => {
+    const key = normalizeSpeakerName(label.name);
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
 }
 
 async function exportProof() {
@@ -1180,18 +1742,27 @@ function jumpToBeat1() {
   resetDemo();
   setSessionActive(true);
   showSession();
-  timeline.transcript.slice(0, 3).forEach(addTranscript);
+  addTranscriptThrough("beat1");
   showBeat1();
-  els.demoClock.textContent = "01:15";
+  els.demoClock.textContent = "00:35";
 }
 
 function jumpToBeat2() {
   resetDemo();
   setSessionActive(true);
   showSession();
-  timeline.transcript.forEach(addTranscript);
+  addTranscriptThrough("beat2");
   showBeat2();
-  els.demoClock.textContent = "02:55";
+  els.demoClock.textContent = "01:07";
+}
+
+function addTranscriptThrough(eventType) {
+  const eventAt = (timeline.events || []).find((event) => event.type === eventType)?.at;
+  const cutoff = Number.isFinite(eventAt) ? eventAt : Number.POSITIVE_INFINITY;
+
+  timeline.transcript
+    .filter((line) => line.at <= cutoff)
+    .forEach(addTranscript);
 }
 
 function bindControls() {
@@ -1485,7 +2056,8 @@ function handleRealtimeMessage(message) {
     clearLiveDraftPlannerTimer();
     liveDraftLine.classList.remove("is-live-draft");
     liveDraftLine.querySelector("p").textContent = transcript;
-    addLiveTranscript(transcript, { render: false });
+    const record = finalizeLiveDraftTranscript(transcript);
+    addLiveTranscript(transcript, { render: false, record });
   } else {
     addLiveTranscript(transcript);
   }
@@ -1521,8 +2093,31 @@ function updateLiveDraft(delta) {
 
   const textElement = liveDraftLine.querySelector("p");
   textElement.textContent += delta;
+  updateLiveDraftSpeakerLabel(textElement.textContent);
   els.transcriptList.scrollTop = els.transcriptList.scrollHeight;
   queueLiveDraftPlanner();
+}
+
+function updateLiveDraftSpeakerLabel(text) {
+  if (!liveDraftLine) return;
+
+  const speakerElement = liveDraftLine.querySelector("strong");
+  const label = getPlannerSpeakerLabel(null, text);
+
+  if (!speakerElement || !label) return;
+
+  const slot = peekNextTurnSpeakerSlot();
+  speakerElement.textContent = label;
+  liveDraftLine.classList.toggle("has-speaker-name", !isPlaceholderSpeaker(label));
+  liveDraftLine.dataset.speakerSource = "turn_slot";
+
+  if (isPlaceholderSpeaker(label)) {
+    delete liveDraftLine.dataset.speakerTheme;
+  } else {
+    liveDraftLine.dataset.speakerTheme = getSpeakerTheme(label, {
+      speakerSlotId: slot?.id || "",
+    });
+  }
 }
 
 function clearLiveDraftPlannerTimer() {
@@ -1543,7 +2138,7 @@ function queueLiveDraftPlanner() {
     liveDraftPlannerText = text;
     addPlannerLine(
       {
-        speaker: "Heard",
+        speaker: getPlannerSpeakerLabel(null, text),
         text,
       },
       {

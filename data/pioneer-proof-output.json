@@ -3,32 +3,33 @@
   "mode": "native_inference",
   "model_id": "fastino/gliner2-base-v1",
   "task": "extract_entities",
-  "latency_ms": 155.7903289794922,
-  "token_usage": 41,
+  "latency_ms": 260.80322265625,
+  "token_usage": 49,
   "input": {
-    "quote": "Head of Growth owns it. They want something before the Q3 event push."
+    "quote": "If someone says, ‘I’d talk to Hexa,’ capture that, then ask who at Hexa and what to mention."
   },
   "raw_extract": {
-    "primary_need_owner": ["Head of Growth"],
-    "timing_signal": ["Q3 event push"]
+    "primary_need_owner": ["Hexa"],
+    "missing_information": ["who at Hexa", "what to mention"]
   },
   "normalized": {
-    "primary_need_owner": "Head of Growth",
-    "timing_signal": "Q3 event push",
-    "missing_information": ["what they already tried"],
-    "not_inferred": ["whether they will buy"],
-    "confidence": 0.9
+    "should_extract": true,
+    "primary_need_owner": "Hexa",
+    "timing_signal": null,
+    "missing_information": ["who at Hexa", "what to mention"],
+    "not_inferred": ["who at Hexa is the right person", "whether they agreed to an intro"],
+    "confidence": 0.88
   },
   "visible_evidence": [
     {
-      "speaker": "Today's speaker",
-      "quote": "Head of Growth owns it. They want something before the Q3 event push."
+      "speaker": "Camille",
+      "quote": "If someone says, ‘I’d talk to Hexa,’ capture that, then ask who at Hexa and what to mention."
     },
     {
       "speaker": "Sarah, Station F",
-      "quote": "We're evaluating tools for event follow-up this quarter."
+      "quote": "After demo day, the next step disappears unless someone captures the exact quote."
     }
   ],
-  "next_thing_to_do": "Ask if they want to compare notes with Sarah.",
-  "stage_note": "Pioneer is used as a quote-backed structured extractor, not as the stage-critical demo path."
+  "next_thing_to_do": "Ask who at Hexa and what to mention before drafting anything.",
+  "stage_note": "Pioneer is used as the quote-action gate: it checks whether a quote is specific enough to become a card. OpenAI Realtime supplies the live transcript; the stage demo can still run from cached transcript frames."
 }
