@@ -47,3 +47,27 @@ Live conversation should never open Gmail, social media, CRM, or calendar. Live 
 - Whether the demo feels less like a sales coach.
 - Whether "next action" feels broader than "ask a question."
 - Whether email/social steps can appear without feeling intrusive.
+
+## Live Planner
+
+The productized worktree includes `/api/plan-actions`.
+
+Input:
+
+- user goal
+- recent transcript lines
+- seeded memory quotes
+
+Output:
+
+- whether RoomPilot should act now
+- exact evidence quote
+- one live cue
+- what was not inferred
+- selected action type
+- visible action palette
+- after-session action queue
+
+UI rule:
+
+If `should_act=false`, the product stays quiet. `Possible next moves` only appears after the planner selects a quote-backed move.

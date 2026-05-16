@@ -83,6 +83,11 @@ let fallbackSegmentTimer = null;
 let fallbackTranscribeInFlight = false;
 let fallbackPendingBlob = null;
 let lastFallbackTranscript = "";
+let liveTranscriptLines = [];
+let plannerTimer = null;
+let plannerRequestId = 0;
+let lastPlannedTranscript = "";
+let hasPlannerSuggestion = false;
 
 const statusMessages = [
   "Thinking through your next move",
@@ -204,6 +209,7 @@ const els = {
   queuedActions: document.querySelector("#queuedActions"),
   nextCard: document.querySelector("#nextCard"),
   nextCardTitle: document.querySelector("#nextCardTitle"),
+  nextCardBody: document.querySelector("#nextCardBody"),
   needText: document.querySelector("#needText"),
   ownerText: document.querySelector("#ownerText"),
   timingText: document.querySelector("#timingText"),
@@ -219,6 +225,8 @@ const els = {
   jumpBeat2: document.querySelector("#jumpBeat2"),
   stopSession: document.querySelector("#stopSession"),
 };
+
+const userGoal = "Find useful follow-up after Tech Europe.";
 
 async function loadData() {
   try {
@@ -248,6 +256,11 @@ function clearTimers() {
   if (statusTimer) {
     window.clearInterval(statusTimer);
     statusTimer = null;
+  }
+
+  if (plannerTimer) {
+    window.clearTimeout(plannerTimer);
+    plannerTimer = null;
   }
 }
 
@@ -323,8 +336,15 @@ function resetDemo() {
   setHidden(els.actionPalette, true);
   setHidden(els.actionQueue, true);
   setHidden(els.nextCard, true);
+  els.nextCardTitle.textContent = "Ask if they want to compare notes with Sarah.";
+  els.nextCardBody.textContent =
+    "Use the two quotes on screen. Do not pitch yet; just ask whether the comparison would help.";
   setSessionActive(false);
   els.graphWrap.classList.remove("is-live", "is-bridge");
+  liveTranscriptLines = [];
+  plannerRequestId += 1;
+  lastPlannedTranscript = "";
+  hasPlannerSuggestion = false;
   renderProductStage("waiting");
   updateMemory({
     state: "waiting",
@@ -369,13 +389,34 @@ function addTranscript(line) {
     item.classList.add("is-hero");
   }
 
-  item.innerHTML = `
-    <strong>${line.speaker}</strong>
-    <p>${line.text}</p>
-  `;
+  const speaker = document.createElement("strong");
+  const text = document.createElement("p");
+  speaker.textContent = line.speaker;
+  text.textContent = line.text;
+  item.append(speaker, text);
 
   els.transcriptList.appendChild(item);
   els.transcriptList.scrollTop = els.transcriptList.scrollHeight;
+}
+
+function addLiveTranscript(text, options = {}) {
+  const normalized = normalizeTranscript(text);
+  if (!normalized) return;
+
+  if (options.render !== false) {
+    addTranscript({
+      speaker: "Heard",
+      text: normalized,
+    });
+  }
+
+  liveTranscriptLines.push({
+    speaker: "Heard",
+    text: normalized,
+    at: new Date().toISOString(),
+  });
+  liveTranscriptLines = liveTranscriptLines.slice(-8);
+  queuePlanner();
 }
 
 function updateMemory(next) {
@@ -423,6 +464,168 @@ function renderProductStage(stageName) {
 
   setHidden(els.actionPalette, !stage.selectedAction);
   setHidden(els.actionQueue, stage.queue.length === 0);
+}
+
+function queuePlanner() {
+  if (plannerTimer) {
+    window.clearTimeout(plannerTimer);
+  }
+
+  plannerTimer = window.setTimeout(runPlanner, 650);
+}
+
+async function runPlanner() {
+  const transcriptKey = liveTranscriptLines.map((line) => line.text).join("\n");
+
+  if (!transcriptKey || transcriptKey === lastPlannedTranscript) return;
+
+  lastPlannedTranscript = transcriptKey;
+  const requestId = ++plannerRequestId;
+  els.plannerState.textContent = "checking transcript";
+
+  try {
+    const response = await withTimeout(
+      fetch("/api/plan-actions", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          user_goal: userGoal,
+          transcript: liveTranscriptLines,
+          memory_quotes: seed.sessions.map((session) => ({
+            person: session.person,
+            company: session.company,
+            quote: session.quote,
+          })),
+        }),
+      }),
+      14000,
+      "Planner took too long"
+    );
+    const plan = await response.json();
+
+    if (requestId !== plannerRequestId) return;
+
+    if (!response.ok) {
+      throw new Error(plan.error || "Planner failed");
+    }
+
+    renderPlannerPlan(plan);
+  } catch (error) {
+    console.warn(error);
+    els.plannerState.textContent = "planner unavailable";
+  }
+}
+
+function renderPlannerPlan(plan) {
+  els.plannerState.textContent = plan.should_act ? "found a move" : "staying quiet";
+
+  if (!plan.should_act) {
+    if (!hasPlannerSuggestion) {
+      setHidden(els.beat1Cue, true);
+      setHidden(els.actionPalette, true);
+      setHidden(els.actionQueue, true);
+      setHidden(els.nextCard, true);
+      setHidden(els.emptyCue, false);
+    }
+    updateMemory({
+      state: "listening",
+      need: plan.memory_update?.what_they_said || "Waiting for a quote.",
+      owner: plan.memory_update?.who_seems_closest || "Not named yet.",
+      timing: plan.memory_update?.when_it_matters || "Not named yet.",
+      unknown: plan.memory_update?.still_unknown || "A quote worth acting on.",
+      note: "Staying quiet until there is proof.",
+    });
+    return;
+  }
+
+  setHidden(els.emptyCue, true);
+  hasPlannerSuggestion = true;
+  setHidden(els.beat2Cue, true);
+  setHidden(els.evidenceCapture, true);
+  setHidden(els.beat1Cue, false);
+  setHidden(els.actionPalette, false);
+  setHidden(els.nextCard, false);
+
+  updateCueFromPlan(plan);
+  renderActionPalette(plan);
+  renderActionQueue(plan.after_session_actions || []);
+
+  els.nextCardTitle.textContent = plan.live_cue || "Keep this moment for follow-up.";
+  els.nextCardBody.textContent =
+    plan.action_reason || "Use the evidence on screen. Prepare external actions after the session.";
+  updateMemory({
+    state: plan.recommended_action_type === "none" ? "listening" : "planned",
+    need: plan.memory_update?.what_they_said || "A useful quote appeared.",
+    owner: plan.memory_update?.who_seems_closest || "Not named yet.",
+    timing: plan.memory_update?.when_it_matters || "Not named yet.",
+    unknown: plan.memory_update?.still_unknown || plan.not_inferred || "What to do next.",
+    note: plan.action_reason || "A quote-backed move is ready.",
+  });
+}
+
+function updateCueFromPlan(plan) {
+  const quoteBlock = els.beat1Cue.querySelector(".quote-block blockquote");
+  const cueText = els.beat1Cue.querySelector(".cue-block h2");
+  const notClaiming = els.beat1Cue.querySelector(".not-claiming");
+  const confidence = els.beat1Cue.querySelector(".confidence");
+
+  quoteBlock.textContent = quoteWithMarks(plan.evidence_quote);
+  cueText.textContent = plan.live_cue;
+  notClaiming.textContent = plan.not_inferred;
+  confidence.textContent = `Confidence: ${plan.confidence || "medium"}`;
+  confidence.classList.remove("low", "medium", "high");
+  confidence.classList.add(plan.confidence || "medium");
+}
+
+function renderActionPalette(plan) {
+  els.actionPaletteState.textContent = plan.recommended_action_type === "none" ? "quiet" : "chosen";
+  els.actionReasonText.textContent = plan.action_reason || "";
+  els.actionChipList.innerHTML = "";
+
+  (plan.actions || []).forEach((action) => {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.textContent = action.label;
+    button.className = "action-chip";
+
+    if (action.selected) {
+      button.classList.add("is-selected");
+    }
+
+    els.actionChipList.appendChild(button);
+  });
+
+  setHidden(els.actionPalette, !(plan.actions || []).some((action) => action.selected));
+}
+
+function renderActionQueue(actions) {
+  els.queuedActions.innerHTML = "";
+
+  actions.forEach((action) => {
+    const item = document.createElement("article");
+    item.className = "queued-action";
+    item.innerHTML = `
+      <h3>${escapeHtml(action.title)}</h3>
+      <p>${escapeHtml(action.detail)}</p>
+      <small>Proof: "${escapeHtml(action.proof)}"</small>
+    `;
+    els.queuedActions.appendChild(item);
+  });
+
+  setHidden(els.actionQueue, actions.length === 0);
+}
+
+function quoteWithMarks(text) {
+  const clean = String(text || "").trim();
+  return clean.startsWith('"') ? clean : `"${clean}"`;
+}
+
+function escapeHtml(text) {
+  const div = document.createElement("div");
+  div.textContent = String(text || "");
+  return div.innerHTML;
 }
 
 function showBeat1() {
@@ -473,6 +676,8 @@ function showBeat2() {
   setHidden(els.beat2Cue, false);
   setHidden(els.nextCard, false);
   els.nextCardTitle.textContent = "Ask if comparing notes with Sarah would help.";
+  els.nextCardBody.textContent =
+    "Use the two quotes on screen. Queue email and profile work for after the conversation.";
   els.graphWrap.classList.add("is-bridge");
   renderProductStage("bridge");
   updateMemory({
@@ -488,6 +693,8 @@ function showBeat2() {
 function showFinalMemory() {
   setHidden(els.nextCard, false);
   els.nextCardTitle.textContent = "Leave with a queue, not just a question.";
+  els.nextCardBody.textContent =
+    "Keep the live moment light. Prepare drafts, profile lookup, and reminders after the session.";
   renderProductStage("bridge");
   updateMemory({
     state: "ready",
@@ -842,11 +1049,9 @@ function handleRealtimeMessage(message) {
   if (liveDraftLine) {
     liveDraftLine.classList.remove("is-live-draft");
     liveDraftLine.querySelector("p").textContent = transcript;
+    addLiveTranscript(transcript, { render: false });
   } else {
-    addTranscript({
-      speaker: "Heard",
-      text: transcript,
-    });
+    addLiveTranscript(transcript);
   }
 
   liveDraftLine = null;
@@ -1015,10 +1220,7 @@ async function transcribeFallbackChunk(blob) {
 
     lastFallbackTranscript = text;
     lastTranscriptAt = Date.now();
-    addTranscript({
-      speaker: "Heard",
-      text,
-    });
+    addLiveTranscript(text);
     setLiveStatus("Transcript received", "active");
   } catch (error) {
     console.warn(error);

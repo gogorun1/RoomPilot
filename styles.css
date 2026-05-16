@@ -534,6 +534,11 @@ blockquote {
   color: #113b6d;
 }
 
+.confidence.low {
+  background: var(--surface-2);
+  color: var(--muted);
+}
+
 .not-claiming {
   margin-bottom: 0;
   color: var(--muted);

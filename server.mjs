@@ -32,6 +32,11 @@ const server = createServer(async (request, response) => {
       return;
     }
 
+    if (url.pathname === "/api/plan-actions" && request.method === "POST") {
+      await planActions(request, response);
+      return;
+    }
+
     if (request.method !== "GET" && request.method !== "HEAD") {
       sendJson(response, 405, { error: "Method not allowed" });
       return;
@@ -213,6 +218,432 @@ async function transcribeAudioChunk(request, response) {
   });
 }
 
+async function planActions(request, response) {
+  loadEnvFile(".env");
+  loadEnvFile(".env.local");
+
+  const body = await readJsonBody(request, 128 * 1024);
+  const userGoal = String(body.user_goal || "Find useful follow-up after Tech Europe.");
+  const transcript = Array.isArray(body.transcript) ? body.transcript : [];
+  const memoryQuotes = Array.isArray(body.memory_quotes) ? body.memory_quotes : [];
+  const fallbackPlan = buildLocalPlan(userGoal, transcript, memoryQuotes);
+
+  if (!process.env.OPENAI_API_KEY) {
+    sendJson(response, 200, {
+      ...fallbackPlan,
+      source: "local_fallback",
+      planner_status: "OPENAI_API_KEY is missing in .env.local",
+    });
+    return;
+  }
+
+  try {
+    const model =
+      process.env.OPENAI_PLANNER_MODEL ||
+      process.env.OPENAI_MODEL ||
+      "gpt-4.1-mini";
+    const upstream = await fetch("https://api.openai.com/v1/responses", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model,
+        input: [
+          {
+            role: "system",
+            content: [
+              {
+                type: "input_text",
+                text: plannerSystemPrompt(),
+              },
+            ],
+          },
+          {
+            role: "user",
+            content: [
+              {
+                type: "input_text",
+                text: JSON.stringify(
+                  {
+                    user_goal: userGoal,
+                    transcript,
+                    memory_quotes: memoryQuotes,
+                  },
+                  null,
+                  2
+                ),
+              },
+            ],
+          },
+        ],
+        text: {
+          format: {
+            type: "json_schema",
+            name: "roompilot_action_plan",
+            strict: true,
+            schema: plannerSchema(),
+          },
+        },
+      }),
+    });
+
+    const payload = await upstream.json().catch(() => ({}));
+
+    if (!upstream.ok) {
+      console.warn("Planner failed", {
+        status: upstream.status,
+        error: payload.error?.message,
+      });
+      sendJson(response, 200, {
+        ...fallbackPlan,
+        source: "local_fallback",
+        planner_status: payload.error?.message || "OpenAI planner failed",
+      });
+      return;
+    }
+
+    const plan = parsePlannerResponse(payload);
+    sendJson(response, 200, {
+      ...normalizePlan(plan, fallbackPlan),
+      source: "openai",
+      model,
+    });
+  } catch (error) {
+    console.warn("Planner exception", error);
+    sendJson(response, 200, {
+      ...fallbackPlan,
+      source: "local_fallback",
+      planner_status: error.message,
+    });
+  }
+}
+
+function plannerSystemPrompt() {
+  return [
+    "You are RoomPilot's live conversation planner.",
+    "Decide whether the user should act now based only on visible transcript evidence and the user's goal.",
+    "The UI must feel like a thoughtful friend, not a sales tool.",
+    "Never use sales-methodology words in user-visible strings.",
+    "Every recommendation must cite one exact evidence quote from the transcript or memory quotes.",
+    "If evidence is weak, set should_act=false and keep all user-visible suggestion fields empty.",
+    "If should_act=true, live_cue must include a concrete next move, not just a summary.",
+    "not_inferred must be a short non-empty sentence whenever should_act=true.",
+    "Visible action labels must be short: Ask, Save, Compare, Draft later, Find public context, Reminder.",
+    "Do not infer budget, title, intent to buy, or relationship unless directly stated.",
+    "Actions are user-confirmed. Never say an email, social lookup, reminder, or intro has already happened.",
+    "Prefer one light live cue. Put email/social/profile/reminder work into after_session_actions.",
+  ].join(" ");
+}
+
+function plannerSchema() {
+  return {
+    type: "object",
+    additionalProperties: false,
+    required: [
+      "should_act",
+      "evidence_quote",
+      "live_cue",
+      "not_inferred",
+      "confidence",
+      "recommended_action_type",
+      "action_reason",
+      "actions",
+      "after_session_actions",
+      "memory_update",
+    ],
+    properties: {
+      should_act: { type: "boolean" },
+      evidence_quote: { type: "string" },
+      live_cue: { type: "string" },
+      not_inferred: { type: "string" },
+      confidence: { type: "string", enum: ["low", "medium", "high"] },
+      recommended_action_type: {
+        type: "string",
+        enum: [
+          "none",
+          "ask",
+          "save",
+          "compare",
+          "draft_later",
+          "find_public_context",
+          "reminder",
+        ],
+      },
+      action_reason: { type: "string" },
+      actions: {
+        type: "array",
+        items: {
+          type: "object",
+          additionalProperties: false,
+          required: ["label", "type", "selected"],
+          properties: {
+            label: { type: "string" },
+            type: { type: "string" },
+            selected: { type: "boolean" },
+          },
+        },
+      },
+      after_session_actions: {
+        type: "array",
+        items: {
+          type: "object",
+          additionalProperties: false,
+          required: ["title", "detail", "proof"],
+          properties: {
+            title: { type: "string" },
+            detail: { type: "string" },
+            proof: { type: "string" },
+          },
+        },
+      },
+      memory_update: {
+        type: "object",
+        additionalProperties: false,
+        required: ["what_they_said", "who_seems_closest", "when_it_matters", "still_unknown"],
+        properties: {
+          what_they_said: { type: "string" },
+          who_seems_closest: { type: "string" },
+          when_it_matters: { type: "string" },
+          still_unknown: { type: "string" },
+        },
+      },
+    },
+  };
+}
+
+function parsePlannerResponse(payload) {
+  if (payload.output_text) {
+    return JSON.parse(payload.output_text);
+  }
+
+  const message = payload.output
+    ?.flatMap((item) => item.content || [])
+    ?.find((part) => part.type === "output_text" || part.text);
+
+  return JSON.parse(message?.text || "{}");
+}
+
+function normalizePlan(plan, fallbackPlan) {
+  if (!plan || typeof plan !== "object") return fallbackPlan;
+
+  if (!plan.should_act) {
+    return {
+      ...fallbackPlan,
+      should_act: false,
+      evidence_quote: "",
+      live_cue: "",
+      not_inferred: "",
+      recommended_action_type: "none",
+      action_reason: "",
+      actions: [],
+      after_session_actions: [],
+    };
+  }
+
+  return {
+    should_act: Boolean(plan.should_act),
+    evidence_quote: cleanText(plan.evidence_quote),
+    live_cue: ensureConcreteCue(plan, fallbackPlan),
+    not_inferred:
+      cleanText(plan.not_inferred) || "Not assuming they want to buy or meet anyone yet.",
+    confidence: ["low", "medium", "high"].includes(plan.confidence)
+      ? plan.confidence
+      : "medium",
+    recommended_action_type: plan.recommended_action_type || "ask",
+    action_reason: cleanText(plan.action_reason),
+    actions: normalizeActions(
+      Array.isArray(plan.actions) ? plan.actions : fallbackPlan.actions,
+      plan.recommended_action_type || fallbackPlan.recommended_action_type
+    ),
+    after_session_actions: normalizeAfterSessionActions(
+      Array.isArray(plan.after_session_actions)
+        ? plan.after_session_actions.slice(0, 5)
+        : fallbackPlan.after_session_actions,
+      fallbackPlan
+    ),
+    memory_update: {
+      ...fallbackPlan.memory_update,
+      ...(plan.memory_update || {}),
+    },
+  };
+}
+
+function ensureConcreteCue(plan, fallbackPlan) {
+  const cue = cleanText(plan.live_cue);
+
+  if (!cue) return fallbackPlan.live_cue;
+
+  const lower = cue.toLowerCase();
+  const soundsLikeMove =
+    lower.includes("ask") ||
+    lower.includes("save") ||
+    lower.includes("draft") ||
+    lower.includes("look up") ||
+    lower.includes("follow up") ||
+    lower.includes("compare");
+
+  if (soundsLikeMove) return cue;
+
+  return `${cue} Ask what would make this worth fixing now.`;
+}
+
+function normalizeActions(actions, selectedType) {
+  const allowed = [
+    ["ask", "Ask"],
+    ["save", "Save"],
+    ["compare", "Compare"],
+    ["draft_later", "Draft later"],
+    ["find_public_context", "Find public context"],
+    ["reminder", "Reminder"],
+  ];
+  const incomingTypes = new Set(actions.map((action) => action.type));
+  const orderedTypes = allowed
+    .filter(([type]) => incomingTypes.has(type) || type === selectedType)
+    .map(([type]) => type);
+  const finalTypes = orderedTypes.length
+    ? orderedTypes
+    : ["ask", "save", "draft_later", "find_public_context"];
+
+  return allowed
+    .filter(([type]) => finalTypes.includes(type))
+    .map(([type, label]) => ({
+      type,
+      label,
+      selected: type === selectedType,
+    }));
+}
+
+function normalizeAfterSessionActions(actions, fallbackPlan) {
+  const normalized = actions
+    .filter((action) => action.title && action.detail && action.proof)
+    .map((action) => ({
+      title: cleanText(action.title),
+      detail: cleanText(action.detail),
+      proof: cleanText(action.proof),
+    }));
+  const titles = new Set(normalized.map((action) => action.title.toLowerCase()));
+
+  for (const action of fallbackPlan.after_session_actions || []) {
+    const title = action.title.toLowerCase();
+
+    if (!titles.has(title)) {
+      normalized.push(action);
+      titles.add(title);
+    }
+  }
+
+  return normalized.slice(0, 5);
+}
+
+function buildLocalPlan(userGoal, transcript, memoryQuotes) {
+  const text = transcript.map((line) => line.text || "").join(" ");
+  const latestLine = transcript
+    .slice()
+    .reverse()
+    .find((line) => (line.text || "").trim());
+  const quote = latestLine?.text || "";
+  const lower = text.toLowerCase();
+  const hasFollowUp = lower.includes("follow") || lower.includes("lead");
+  const hasOwner = lower.includes("head of growth") || lower.includes("owns it");
+  const hasTiming = lower.includes("q3") || lower.includes("quarter");
+  const bridge = memoryQuotes.find((item) =>
+    /follow-up|follow up|event/i.test(item.quote || "")
+  );
+
+  if (!quote || !hasFollowUp) {
+    return emptyPlan(userGoal);
+  }
+
+  const actions = [
+    { label: "Ask", type: "ask", selected: !hasOwner },
+    { label: "Save", type: "save", selected: false },
+    { label: "Draft later", type: "draft_later", selected: hasOwner },
+    { label: "Find public context", type: "find_public_context", selected: false },
+  ];
+
+  if (bridge) {
+    actions.splice(2, 0, { label: "Compare", type: "compare", selected: hasOwner });
+  }
+
+  return {
+    should_act: true,
+    evidence_quote: quote,
+    live_cue: hasOwner
+      ? "They named who is closest to this and when it matters. Ask what they tried last time."
+      : "They described a follow-up problem, but not who feels it most. Ask who has to deal with this after the event.",
+    not_inferred: hasOwner
+      ? "Not assuming they want to buy anything."
+      : "They have not named who decides yet.",
+    confidence: hasOwner || hasTiming ? "high" : "medium",
+    recommended_action_type: hasOwner ? "draft_later" : "ask",
+    action_reason: hasOwner
+      ? "Prepare follow-up after the conversation. Do not send anything without review."
+      : "Ask one quiet question now. Leave email and profile work for after the conversation.",
+    actions,
+    after_session_actions: hasOwner
+      ? [
+          {
+            title: "Draft follow-up email",
+            detail: "Prepare a short note that references the exact quote. Keep it unsent.",
+            proof: quote,
+          },
+          {
+            title: "Find public profile",
+            detail: "Look up their company and role after the session.",
+            proof: "Head of Growth owns it.",
+          },
+          ...(hasTiming
+            ? [
+                {
+                  title: "Create reminder",
+                  detail: "Follow up before their Q3 push.",
+                  proof: "They want something before the Q3 event push.",
+                },
+              ]
+            : []),
+        ]
+      : [
+          {
+            title: "Save this moment",
+            detail: "Keep the exact quote with the session.",
+            proof: quote,
+          },
+        ],
+    memory_update: {
+      what_they_said: "Event follow-up is hard to do consistently.",
+      who_seems_closest: hasOwner ? "Head of Growth" : "Not named yet.",
+      when_it_matters: hasTiming ? "Before Q3" : "Not named yet.",
+      still_unknown: hasOwner ? "What they already tried last time." : "Who handles this after the event.",
+    },
+  };
+}
+
+function emptyPlan(userGoal) {
+  return {
+    should_act: false,
+    evidence_quote: "",
+    live_cue: "",
+    not_inferred: "",
+    confidence: "low",
+    recommended_action_type: "none",
+    action_reason: "",
+    actions: [],
+    after_session_actions: [],
+    memory_update: {
+      what_they_said: "Waiting for a quote.",
+      who_seems_closest: "Not named yet.",
+      when_it_matters: "Not named yet.",
+      still_unknown: userGoal ? "A quote worth acting on." : "The user's goal.",
+    },
+  };
+}
+
+function cleanText(value) {
+  return String(value || "").replace(/\s+/g, " ").trim();
+}
+
 function normalizeAudioContentType(type) {
   if (type.startsWith("audio/mp4")) return "audio/mp4";
   if (type.startsWith("audio/webm")) return "audio/webm";
@@ -282,6 +713,14 @@ function readRequestBody(request, maxBytes) {
     request.on("end", () => resolve(Buffer.concat(chunks)));
     request.on("error", reject);
   });
+}
+
+async function readJsonBody(request, maxBytes) {
+  const body = await readRequestBody(request, maxBytes);
+
+  if (!body.length) return {};
+
+  return JSON.parse(body.toString("utf8"));
 }
 
 function sendJson(response, status, payload) {
