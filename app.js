@@ -79,7 +79,9 @@ let liveAudioLevelTimer = null;
 let lastLiveAudioLevel = 0;
 let lastTranscriptAt = 0;
 let fallbackRecorder = null;
+let fallbackSegmentTimer = null;
 let fallbackTranscribeInFlight = false;
+let fallbackPendingBlob = null;
 let lastFallbackTranscript = "";
 
 const statusMessages = [
@@ -743,16 +745,55 @@ function startFallbackTranscriber(stream) {
     return;
   }
 
-  const recorderOptions = getRecorderOptions();
-  fallbackRecorder = new MediaRecorder(stream, recorderOptions);
+  recordFallbackSegment(stream);
+}
 
-  fallbackRecorder.addEventListener("dataavailable", (event) => {
-    if (!event.data || event.data.size < 1500) return;
-    setLiveStatus(`Captured audio ${Math.round(event.data.size / 1024)}KB`, "active");
-    transcribeFallbackChunk(event.data);
+function recordFallbackSegment(stream) {
+  if (!livePeer || !stream.active) return;
+
+  const recorderOptions = getRecorderOptions();
+  const chunks = [];
+  const attemptId = liveAttemptId;
+  const recorder = new MediaRecorder(stream, recorderOptions);
+  fallbackRecorder = recorder;
+
+  recorder.addEventListener("dataavailable", (event) => {
+    if (event.data && event.data.size > 0) {
+      chunks.push(event.data);
+    }
   });
 
-  fallbackRecorder.start(4000);
+  recorder.addEventListener("stop", () => {
+    if (fallbackRecorder === recorder) {
+      fallbackRecorder = null;
+    }
+
+    if (!livePeer || attemptId !== liveAttemptId) return;
+
+    const blob = new Blob(chunks, {
+      type: recorder.mimeType || recorderOptions.mimeType || "audio/webm",
+    });
+
+    if (blob.size >= 1500) {
+      setLiveStatus(`Captured audio ${Math.round(blob.size / 1024)}KB`, "active");
+      transcribeFallbackChunk(blob);
+    }
+
+    fallbackSegmentTimer = window.setTimeout(() => {
+      recordFallbackSegment(stream);
+    }, 180);
+  });
+
+  recorder.addEventListener("error", () => {
+    setLiveStatus("Browser recorder failed. Try Replay.", "error");
+  });
+
+  recorder.start();
+  fallbackSegmentTimer = window.setTimeout(() => {
+    if (recorder.state === "recording") {
+      recorder.stop();
+    }
+  }, 3600);
 }
 
 function getRecorderOptions() {
@@ -763,17 +804,28 @@ function getRecorderOptions() {
 }
 
 function stopFallbackTranscriber() {
+  if (fallbackSegmentTimer) {
+    window.clearTimeout(fallbackSegmentTimer);
+    fallbackSegmentTimer = null;
+  }
+
   if (fallbackRecorder && fallbackRecorder.state !== "inactive") {
     fallbackRecorder.stop();
   }
 
   fallbackRecorder = null;
   fallbackTranscribeInFlight = false;
+  fallbackPendingBlob = null;
 }
 
 async function transcribeFallbackChunk(blob) {
-  if (fallbackTranscribeInFlight) return;
   if (!livePeer) return;
+
+  if (fallbackTranscribeInFlight) {
+    fallbackPendingBlob = blob;
+    setLiveStatus("Queued audio for transcript", "active");
+    return;
+  }
 
   fallbackTranscribeInFlight = true;
   const attemptId = liveAttemptId;
@@ -823,6 +875,12 @@ async function transcribeFallbackChunk(blob) {
     setLiveStatus(error.message, "error");
   } finally {
     fallbackTranscribeInFlight = false;
+
+    if (fallbackPendingBlob && livePeer && attemptId === liveAttemptId) {
+      const pendingBlob = fallbackPendingBlob;
+      fallbackPendingBlob = null;
+      window.setTimeout(() => transcribeFallbackChunk(pendingBlob), 100);
+    }
   }
 }
 
