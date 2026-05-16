@@ -97,6 +97,7 @@ let hasPlannerSuggestion = false;
 const fallbackActivationDelayMs = 3800;
 const fallbackStaleTranscriptMs = 2800;
 const fallbackSegmentMs = 1500;
+const speakerDiarizationSegmentMs = 8000;
 const fallbackSegmentGapMs = 120;
 
 const statusMessages = [
@@ -1423,7 +1424,7 @@ function recordFallbackSegment(stream) {
     if (recorder.state === "recording") {
       recorder.stop();
     }
-  }, fallbackSegmentMs);
+  }, speakerDiarizationEnabled() ? speakerDiarizationSegmentMs : fallbackSegmentMs);
 }
 
 function getRecorderOptions() {

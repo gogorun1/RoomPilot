@@ -237,6 +237,10 @@ async function transcribeAudioChunk(request, response) {
   if (wantsDiarization) {
     form.append("response_format", "diarized_json");
     form.append("chunking_strategy", "auto");
+    form.append(
+      "prompt",
+      "The conversation may switch between English, Mandarin Chinese, and French. Preserve the original language. Do not translate. Separate different speakers when there is enough evidence."
+    );
   }
 
   const language = getTranscriptionLanguage();
