@@ -124,6 +124,8 @@ const fallbackTimeline = {
   ],
 };
 
+const demoSpeechRate = 2;
+
 let seed = fallbackSeed;
 let timeline = fallbackTimeline;
 let timers = [];
@@ -517,7 +519,7 @@ function speakBrowserDemoLine(line) {
 
   utterance.voice = isCamille ? voices.camille : voices.gogo;
   utterance.lang = "en-US";
-  utterance.rate = isCamille ? 1.02 : 1;
+  utterance.rate = demoSpeechRate;
   utterance.pitch = isCamille ? 1.18 : 0.82;
   utterance.volume = 0.95;
 
@@ -533,6 +535,7 @@ async function speakDemoLine(line) {
     if (!audio || speechSequence !== demoSpeechSequence) return;
 
     stopCurrentDemoVoice();
+    audio.playbackRate = demoSpeechRate;
     demoAudioElements.push(audio);
     audio.addEventListener(
       "ended",
