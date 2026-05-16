@@ -68,6 +68,9 @@ function loadEnvFile(fileName) {
 }
 
 async function createRealtimeSession(response) {
+  loadEnvFile(".env");
+  loadEnvFile(".env.local");
+
   if (!process.env.OPENAI_API_KEY) {
     sendJson(response, 501, {
       error: "OPENAI_API_KEY is missing in .env.local",
