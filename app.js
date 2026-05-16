@@ -73,6 +73,7 @@ let livePeer = null;
 let liveStream = null;
 let liveDataChannel = null;
 let liveDraftLine = null;
+let liveAttemptId = 0;
 
 const statusMessages = [
   "Thinking through your next move",
@@ -489,14 +490,19 @@ async function toggleLiveMic() {
 
 async function startLiveMic() {
   resetDemo();
+  const attemptId = ++liveAttemptId;
   setLiveStatus("Preparing live mic", "pending");
   showSession();
   setSessionActive(true);
 
   try {
-    const sessionResponse = await fetch("/api/realtime/session", {
-      method: "POST",
-    });
+    const sessionResponse = await withTimeout(
+      fetch("/api/realtime/session", {
+        method: "POST",
+      }),
+      12000,
+      "OpenAI took too long to start. Try Replay."
+    );
     const session = await sessionResponse.json();
 
     if (!sessionResponse.ok) {
@@ -510,12 +516,23 @@ async function startLiveMic() {
       throw new Error("Realtime session did not return a client secret");
     }
 
-    liveStream = await navigator.mediaDevices.getUserMedia({
-      audio: {
-        echoCancellation: true,
-        noiseSuppression: true,
-      },
-    });
+    const stream = await withTimeout(
+      navigator.mediaDevices.getUserMedia({
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+        },
+      }),
+      6000,
+      "Allow microphone access, then try again."
+    );
+
+    if (attemptId !== liveAttemptId) {
+      stream.getTracks().forEach((track) => track.stop());
+      return;
+    }
+
+    liveStream = stream;
 
     livePeer = new RTCPeerConnection();
     liveStream.getTracks().forEach((track) => livePeer.addTrack(track, liveStream));
@@ -528,14 +545,18 @@ async function startLiveMic() {
     const realtimeUrl = new URL("https://api.openai.com/v1/realtime/calls");
     realtimeUrl.searchParams.set("model", session.model || "gpt-realtime");
 
-    const sdpResponse = await fetch(realtimeUrl, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${ephemeralKey}`,
-        "Content-Type": "application/sdp",
-      },
-      body: offer.sdp,
-    });
+    const sdpResponse = await withTimeout(
+      fetch(realtimeUrl, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${ephemeralKey}`,
+          "Content-Type": "application/sdp",
+        },
+        body: offer.sdp,
+      }),
+      12000,
+      "Realtime connection took too long. Use Replay."
+    );
 
     if (!sdpResponse.ok) {
       throw new Error(await sdpResponse.text());
@@ -556,6 +577,8 @@ async function startLiveMic() {
 }
 
 function stopLiveMic() {
+  liveAttemptId += 1;
+
   if (liveDataChannel) {
     liveDataChannel.close();
     liveDataChannel = null;
@@ -574,6 +597,18 @@ function stopLiveMic() {
   liveDraftLine = null;
   els.liveMic.textContent = "Try live mic";
   setLiveStatus("Live mic idle");
+}
+
+function withTimeout(promise, duration, message) {
+  let timeoutId;
+
+  const timeout = new Promise((_, reject) => {
+    timeoutId = window.setTimeout(() => reject(new Error(message)), duration);
+  });
+
+  return Promise.race([promise, timeout]).finally(() => {
+    window.clearTimeout(timeoutId);
+  });
 }
 
 function handleRealtimeMessage(message) {
