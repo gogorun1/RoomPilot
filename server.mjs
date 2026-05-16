@@ -78,9 +78,17 @@ async function createRealtimeSession(response) {
     return;
   }
 
-  const model = process.env.OPENAI_REALTIME_MODEL || "gpt-realtime";
   const transcriptModel =
-    process.env.OPENAI_TRANSCRIBE_MODEL || "gpt-4o-mini-transcribe";
+    process.env.OPENAI_REALTIME_TRANSCRIBE_MODEL || "gpt-4o-mini-transcribe";
+  const language = process.env.OPENAI_TRANSCRIBE_LANGUAGE;
+
+  const transcription = {
+    model: transcriptModel,
+  };
+
+  if (language) {
+    transcription.language = language;
+  }
 
   const upstream = await fetch("https://api.openai.com/v1/realtime/client_secrets", {
     method: "POST",
@@ -89,22 +97,21 @@ async function createRealtimeSession(response) {
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
+      expires_after: {
+        anchor: "created_at",
+        seconds: 600,
+      },
       session: {
-        type: "realtime",
-        model,
-        instructions:
-          "Transcribe the speaker for RoomPilot. Do not speak unless explicitly asked.",
+        type: "transcription",
         audio: {
           input: {
-            transcription: {
-              model: transcriptModel,
-            },
+            transcription,
             turn_detection: {
               type: "server_vad",
+              threshold: 0.5,
+              prefix_padding_ms: 300,
+              silence_duration_ms: 700,
             },
-          },
-          output: {
-            voice: "marin",
           },
         },
       },
@@ -123,7 +130,8 @@ async function createRealtimeSession(response) {
 
   sendJson(response, 200, {
     ...payload,
-    model,
+    transcription_model: transcriptModel,
+    session_type: "transcription",
   });
 }
 

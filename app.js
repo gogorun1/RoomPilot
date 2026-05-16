@@ -535,18 +535,22 @@ async function startLiveMic() {
     liveStream = stream;
 
     livePeer = new RTCPeerConnection();
-    liveStream.getTracks().forEach((track) => livePeer.addTrack(track, liveStream));
+    liveStream
+      .getAudioTracks()
+      .forEach((track) =>
+        livePeer.addTransceiver(track, {
+          direction: "sendonly",
+          streams: [liveStream],
+        })
+      );
     liveDataChannel = livePeer.createDataChannel("oai-events");
     liveDataChannel.addEventListener("message", handleRealtimeMessage);
 
     const offer = await livePeer.createOffer();
     await livePeer.setLocalDescription(offer);
 
-    const realtimeUrl = new URL("https://api.openai.com/v1/realtime/calls");
-    realtimeUrl.searchParams.set("model", session.model || "gpt-realtime");
-
     const sdpResponse = await withTimeout(
-      fetch(realtimeUrl, {
+      fetch("https://api.openai.com/v1/realtime/calls", {
         method: "POST",
         headers: {
           Authorization: `Bearer ${ephemeralKey}`,
@@ -568,7 +572,7 @@ async function startLiveMic() {
     });
 
     els.liveMic.textContent = "Stop live mic";
-    setLiveStatus("Live mic listening", "active");
+    setLiveStatus("Listening. Waiting for speech.", "active");
   } catch (error) {
     console.error(error);
     stopLiveMic();
@@ -620,6 +624,10 @@ function handleRealtimeMessage(message) {
     return;
   }
 
+  if (!event.type?.startsWith("conversation.item.input_audio_transcription.")) {
+    return;
+  }
+
   const transcript = extractTranscriptText(event);
 
   if (!transcript) return;
@@ -629,10 +637,16 @@ function handleRealtimeMessage(message) {
     return;
   }
 
-  addTranscript({
-    speaker: "Live speaker",
-    text: transcript,
-  });
+  if (liveDraftLine) {
+    liveDraftLine.classList.remove("is-live-draft");
+    liveDraftLine.querySelector("p").textContent = transcript;
+  } else {
+    addTranscript({
+      speaker: "Heard",
+      text: transcript,
+    });
+  }
+
   liveDraftLine = null;
 }
 
@@ -652,7 +666,7 @@ function updateLiveDraft(delta) {
     liveDraftLine = document.createElement("article");
     liveDraftLine.className = "transcript-line is-live-draft";
     liveDraftLine.innerHTML = `
-      <strong>Live speaker</strong>
+      <strong>Heard</strong>
       <p></p>
     `;
     els.transcriptList.appendChild(liveDraftLine);
