@@ -2,7 +2,7 @@
 
 This branch keeps the Paris hackathon demo intact, but adds the missing product step:
 
-`transcript -> speaker intent -> evidence -> action choice -> after-session queue`
+`user goal -> transcript -> evidence -> action choice -> after-session queue`
 
 ## Opinionated Change
 
@@ -20,11 +20,11 @@ RoomPilot should not be a question generator. The live cue should stay light, bu
 
 1. User Goal Agent
    - Internal job: understand what the user is trying to do in this room.
-   - UI wording: "Why you're here"
+   - UI rule: this is set before listening. It is not presented as transcript-derived.
 
 2. Speaker Intent Agent
    - Internal job: classify what the other person is expressing without using sales language.
-   - UI wording: "What they seem to need"
+   - UI rule: never show this as a floating claim. It must appear through evidence-backed cue copy, action reasons, or after-session actions.
 
 3. Evidence Extractor
    - Internal job: only quote-backed facts enter memory.
@@ -32,7 +32,7 @@ RoomPilot should not be a question generator. The live cue should stay light, bu
 
 4. Opportunity Planner
    - Internal job: choose the next action type, not just the next question.
-   - UI wording: "Possible next moves"
+   - UI rule: "Possible next moves" appears only after the planner selects a recommended move from quote-backed evidence.
 
 5. Action Orchestrator
    - Internal job: prepare email, public-profile lookup, reminder, or intro draft.

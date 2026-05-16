@@ -93,10 +93,8 @@ const statusMessages = [
 
 const productStages = {
   waiting: {
-    plannerState: "waiting",
+    plannerState: "set before listening",
     userGoal: "Find useful follow-up after Tech Europe.",
-    speakerIntent: "Waiting for their words.",
-    gap: "A reason to act.",
     actionState: "waiting",
     actionReason: "Waiting for enough proof.",
     selectedAction: null,
@@ -104,21 +102,17 @@ const productStages = {
     queue: [],
   },
   listening: {
-    plannerState: "listening",
+    plannerState: "set before listening",
     userGoal: "Find useful follow-up after Tech Europe.",
-    speakerIntent: "Listening for what they are really trying to solve.",
-    gap: "A concrete quote.",
     actionState: "quiet",
-    actionReason: "No move yet. Stay in the conversation.",
+    actionReason: "",
     selectedAction: null,
-    actions: ["Ask", "Save", "Compare", "Draft later", "Find public context"],
+    actions: [],
     queue: [],
   },
   firstQuote: {
-    plannerState: "one quote",
+    plannerState: "set before listening",
     userGoal: "Find useful follow-up after Tech Europe.",
-    speakerIntent: "They are describing a follow-up problem after events.",
-    gap: "Who feels this problem most.",
     actionState: "one safe move",
     actionReason:
       "Ask one quiet question now. Save and draft later, but do not open another tool during the conversation.",
@@ -133,10 +127,8 @@ const productStages = {
     ],
   },
   updated: {
-    plannerState: "more proof",
+    plannerState: "set before listening",
     userGoal: "Find useful follow-up after Tech Europe.",
-    speakerIntent: "They named who is closest to the problem and when it matters.",
-    gap: "What they already tried.",
     actionState: "prepare later",
     actionReason:
       "There is enough proof to prepare a follow-up, but not enough to send one without review.",
@@ -156,10 +148,8 @@ const productStages = {
     ],
   },
   bridge: {
-    plannerState: "two people",
+    plannerState: "set before listening",
     userGoal: "Find useful follow-up after Tech Europe.",
-    speakerIntent: "This may connect two people with the same event follow-up problem.",
-    gap: "Whether they want the comparison.",
     actionState: "best next move",
     actionReason:
       "Ask if a comparison would help. Queue the email and public lookup for after the conversation.",
@@ -202,8 +192,6 @@ const els = {
   intentPanel: document.querySelector("#intentPanel"),
   plannerState: document.querySelector("#plannerState"),
   userGoalText: document.querySelector("#userGoalText"),
-  speakerIntentText: document.querySelector("#speakerIntentText"),
-  planningGapText: document.querySelector("#planningGapText"),
   statusPills: document.querySelectorAll(".recording-toggle"),
   statusTexts: document.querySelectorAll(".status-text"),
   graphWrap: document.querySelector(".graph-wrap"),
@@ -404,8 +392,6 @@ function renderProductStage(stageName) {
 
   els.plannerState.textContent = stage.plannerState;
   els.userGoalText.textContent = stage.userGoal;
-  els.speakerIntentText.textContent = stage.speakerIntent;
-  els.planningGapText.textContent = stage.gap;
   els.actionPaletteState.textContent = stage.actionState;
   els.actionReasonText.textContent = stage.actionReason;
   els.actionChipList.innerHTML = "";
@@ -435,7 +421,7 @@ function renderProductStage(stageName) {
     els.queuedActions.appendChild(item);
   });
 
-  setHidden(els.actionPalette, stage.actions.length === 0);
+  setHidden(els.actionPalette, !stage.selectedAction);
   setHidden(els.actionQueue, stage.queue.length === 0);
 }
 

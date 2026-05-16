@@ -388,7 +388,7 @@ main {
 
 .intent-grid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: minmax(0, 1fr);
   gap: 8px;
   padding: 12px;
 }
@@ -396,11 +396,15 @@ main {
 .intent-grid div {
   display: grid;
   gap: 6px;
-  min-height: 84px;
+  min-height: 74px;
   padding: 12px;
   border: 1px solid var(--line);
   border-radius: 8px;
   background: #fbfaf7;
+}
+
+.intent-grid.goal-only div {
+  align-content: center;
 }
 
 .intent-grid span,
@@ -414,7 +418,7 @@ main {
 
 .intent-grid strong {
   color: var(--ink);
-  font-size: 15px;
+  font-size: 22px;
   font-weight: 620;
   line-height: 1.28;
 }
