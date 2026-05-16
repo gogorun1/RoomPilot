@@ -74,6 +74,10 @@ let liveStream = null;
 let liveDataChannel = null;
 let liveDraftLine = null;
 let liveAttemptId = 0;
+let liveAudioContext = null;
+let liveAudioLevelTimer = null;
+let lastLiveAudioLevel = 0;
+let lastTranscriptAt = 0;
 
 const statusMessages = [
   "Thinking through your next move",
@@ -192,6 +196,11 @@ function setHidden(element, hidden) {
 function setLiveStatus(message, state = "idle") {
   els.liveStatus.textContent = message;
   els.liveStatus.dataset.state = state;
+}
+
+function describeLiveState(message) {
+  const level = Math.round(lastLiveAudioLevel * 100);
+  setLiveStatus(`${message} Mic ${level}%`, "active");
 }
 
 function resetDemo() {
@@ -535,6 +544,24 @@ async function startLiveMic() {
     liveStream = stream;
 
     livePeer = new RTCPeerConnection();
+    livePeer.addEventListener("connectionstatechange", () => {
+      if (!livePeer) return;
+      if (livePeer.connectionState === "connected") {
+        describeLiveState("Connected.");
+      }
+      if (livePeer.connectionState === "failed") {
+        setLiveStatus("Realtime connection failed. Use Replay.", "error");
+      }
+    });
+    livePeer.addEventListener("iceconnectionstatechange", () => {
+      if (!livePeer) return;
+      if (livePeer.iceConnectionState === "connected") {
+        describeLiveState("Audio path connected.");
+      }
+      if (livePeer.iceConnectionState === "failed") {
+        setLiveStatus("Audio path failed. Use Replay.", "error");
+      }
+    });
     liveStream
       .getAudioTracks()
       .forEach((track) =>
@@ -544,7 +571,15 @@ async function startLiveMic() {
         })
       );
     liveDataChannel = livePeer.createDataChannel("oai-events");
+    liveDataChannel.addEventListener("open", () => {
+      lastTranscriptAt = Date.now();
+      describeLiveState("Listening. Speak, then pause.");
+    });
     liveDataChannel.addEventListener("message", handleRealtimeMessage);
+    liveDataChannel.addEventListener("error", () => {
+      setLiveStatus("Realtime event channel failed. Use Replay.", "error");
+    });
+    startAudioLevelMonitor(liveStream);
 
     const offer = await livePeer.createOffer();
     await livePeer.setLocalDescription(offer);
@@ -572,7 +607,7 @@ async function startLiveMic() {
     });
 
     els.liveMic.textContent = "Stop live mic";
-    setLiveStatus("Listening. Waiting for speech.", "active");
+    describeLiveState("Connecting.");
   } catch (error) {
     console.error(error);
     stopLiveMic();
@@ -598,7 +633,10 @@ function stopLiveMic() {
     liveStream = null;
   }
 
+  stopAudioLevelMonitor();
   liveDraftLine = null;
+  lastLiveAudioLevel = 0;
+  lastTranscriptAt = 0;
   els.liveMic.textContent = "Try live mic";
   setLiveStatus("Live mic idle");
 }
@@ -624,13 +662,18 @@ function handleRealtimeMessage(message) {
     return;
   }
 
-  if (!event.type?.startsWith("conversation.item.input_audio_transcription.")) {
+  console.debug("Realtime event", event.type, event);
+
+  if (!isTranscriptionEvent(event)) {
     return;
   }
 
   const transcript = extractTranscriptText(event);
 
   if (!transcript) return;
+
+  lastTranscriptAt = Date.now();
+  setLiveStatus("Transcript received", "active");
 
   if (event.type?.includes("delta")) {
     updateLiveDraft(transcript);
@@ -648,6 +691,14 @@ function handleRealtimeMessage(message) {
   }
 
   liveDraftLine = null;
+}
+
+function isTranscriptionEvent(event) {
+  return (
+    event.type?.startsWith("conversation.item.input_audio_transcription.") ||
+    event.type?.includes("input_audio_transcription") ||
+    event.type?.includes("transcription")
+  );
 }
 
 function extractTranscriptText(event) {
@@ -675,6 +726,55 @@ function updateLiveDraft(delta) {
   const textElement = liveDraftLine.querySelector("p");
   textElement.textContent += delta;
   els.transcriptList.scrollTop = els.transcriptList.scrollHeight;
+}
+
+function startAudioLevelMonitor(stream) {
+  stopAudioLevelMonitor();
+
+  liveAudioContext = new AudioContext();
+  const source = liveAudioContext.createMediaStreamSource(stream);
+  const analyser = liveAudioContext.createAnalyser();
+  const samples = new Uint8Array(analyser.fftSize);
+
+  source.connect(analyser);
+
+  liveAudioLevelTimer = window.setInterval(() => {
+    analyser.getByteTimeDomainData(samples);
+
+    let sum = 0;
+    for (const sample of samples) {
+      const value = (sample - 128) / 128;
+      sum += value * value;
+    }
+
+    lastLiveAudioLevel = Math.min(1, Math.sqrt(sum / samples.length) * 4);
+
+    if (!livePeer) return;
+
+    const waitingForTranscript =
+      liveDataChannel?.readyState === "open" &&
+      Date.now() - lastTranscriptAt > 8000;
+
+    if (waitingForTranscript && lastLiveAudioLevel > 0.04) {
+      describeLiveState("Heard audio. Waiting for words.");
+    }
+
+    if (waitingForTranscript && lastLiveAudioLevel <= 0.04) {
+      describeLiveState("Mic is open but quiet.");
+    }
+  }, 450);
+}
+
+function stopAudioLevelMonitor() {
+  if (liveAudioLevelTimer) {
+    window.clearInterval(liveAudioLevelTimer);
+    liveAudioLevelTimer = null;
+  }
+
+  if (liveAudioContext) {
+    liveAudioContext.close();
+    liveAudioContext = null;
+  }
 }
 
 async function init() {
