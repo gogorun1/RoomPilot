@@ -22,109 +22,54 @@ const fallbackTimeline = {
     {
       id: "t1",
       speaker: "Heard",
-      text: "Hi, I’m Gogo. RoomPilot turns live conversations into the next useful move.",
-      at: 3200,
+      text: "I’m Gogo. RoomPilot listens to live conversations and finds the next useful move.",
+      at: 2800,
     },
     {
       id: "t2",
       speaker: "Heard",
-      text: "I’m Camille. I work with founder programs, so I see event follow-up problems all the time.",
-      at: 5400,
+      text: "I’m Camille. I work with founder programs, and founders lose momentum after events all the time.",
+      at: 5200,
     },
     {
       id: "t3",
       speaker: "Gogo",
-      text: "Nice. How has the hackathon been for you?",
-      at: 7800,
+      text: "That’s my worry. I built this today, but I don’t want it to die after the weekend.",
+      at: 8200,
     },
     {
       id: "t4",
       speaker: "Camille",
-      text: "Intense, but good. The projects are strong.",
-      at: 10200,
+      text: "Talk to someone at Hexa. They see founder meetings and follow-up problems every week.",
+      at: 11400,
+      hero: true,
+      evidence: true,
     },
     {
       id: "t5",
       speaker: "Gogo",
-      text: "I built RoomPilot today, but I don’t want it to become another weekend project.",
-      at: 13200,
+      text: "Who should I ask first?",
+      at: 14600,
     },
     {
       id: "t6",
       speaker: "Camille",
-      text: "That happens a lot. The demo works, people say it’s cool, then Monday comes and nobody knows who to talk to.",
-      at: 16200,
-      hero: true,
-    },
-    {
-      id: "t7",
-      speaker: "Camille",
-      text: "The real risk is that the demo dies after the weekend.",
-      at: 18600,
-    },
-    {
-      id: "t8",
-      speaker: "Gogo",
-      text: "Exactly. Who would care enough to try this next week?",
-      at: 24400,
-    },
-    {
-      id: "t9",
-      speaker: "Camille",
-      text: "I’d talk to someone at Hexa. They see founder meetings and event follow-up problems every week.",
-      at: 28600,
+      text: "Maybe Nick. Say you tested it live at Tech Europe and ask if it helps founders keep useful conversations alive.",
+      at: 16800,
       evidence: true,
-    },
-    {
-      id: "t10",
-      speaker: "Gogo",
-      text: "Who at Hexa should I talk to first?",
-      at: 34800,
-    },
-    {
-      id: "t11",
-      speaker: "Camille",
-      text: "Maybe Nick. I’m not sure he owns it, but he’d know who does.",
-      at: 38600,
-      evidence: true,
-    },
-    {
-      id: "t12",
-      speaker: "Gogo",
-      text: "Great. What should I ask without sounding too pitchy?",
-      at: 44400,
-    },
-    {
-      id: "t13",
-      speaker: "Camille",
-      text: "Say you tested it live at Tech Europe and want to know if it helps founders avoid losing useful conversations.",
-      at: 48200,
-      evidence: true,
-    },
-    {
-      id: "t14",
-      speaker: "Gogo",
-      text: "Perfect. Thanks, Camille. Good luck with the demos.",
-      at: 52200,
-    },
-    {
-      id: "t15",
-      speaker: "Camille",
-      text: "You too. I’ll send Nick’s contact if I find it.",
-      at: 54800,
     },
   ],
   events: [
-    { type: "showSession", at: 2800 },
-    { type: "beat1", at: 19800 },
-    { type: "askQuestion", at: 23200 },
-    { type: "escalateMemory", at: 31000 },
-    { type: "beat2", at: 40800 },
-    { type: "showFinalMemory", at: 50000 },
+    { type: "showSession", at: 2400 },
+    { type: "beat1", at: 10400 },
+    { type: "askQuestion", at: 13600 },
+    { type: "escalateMemory", at: 15600 },
+    { type: "beat2", at: 19000 },
+    { type: "showFinalMemory", at: 21400 },
   ],
 };
 
-const demoSpeechRate = 2;
+const demoSpeechRate = 1.4;
 
 let seed = fallbackSeed;
 let timeline = fallbackTimeline;
@@ -208,7 +153,7 @@ const productStages = {
         title: "Ask who would try it next week.",
         person: "Camille",
         detail: "Find the person who would care before the demo becomes a weekend artifact.",
-        proof: "The real risk is that the demo dies after the weekend.",
+        proof: "I built this today, but I don’t want it to die after the weekend.",
       },
     ],
   },
@@ -224,13 +169,13 @@ const productStages = {
         title: "Ask who at Hexa to start with.",
         person: "Hexa",
         detail: "Get the name first. Email or LinkedIn can wait until after the conversation.",
-        proof: "I’d talk to someone at Hexa.",
+        proof: "Talk to someone at Hexa.",
       },
       {
         title: "Save Hexa as the first path.",
         person: "Hexa",
         detail: "Keep the reason attached: they see founder meetings and event follow-up problems.",
-        proof: "They see a lot of founder meetings and event follow-up problems.",
+        proof: "They see founder meetings and follow-up problems every week.",
       },
     ],
   },
@@ -246,13 +191,13 @@ const productStages = {
         title: "Save Nick as the next follow-up.",
         person: "Nick",
         detail: "Ask for the best contact route, then draft a short note after the conversation.",
-        proof: "Maybe Nick. I don’t know if he owns this exactly, but he’d know who does.",
+        proof: "Maybe Nick.",
       },
       {
         title: "Find Nick after the session.",
         person: "Nick",
-        detail: "Use email if they send it, otherwise search LinkedIn after the conversation.",
-        proof: "I can send you his email, or you can probably find him on LinkedIn.",
+        detail: "Look him up after the conversation; do not interrupt the live moment.",
+        proof: "Maybe Nick.",
       },
       {
         title: "Draft a soft follow-up note to Nick.",
@@ -1079,7 +1024,7 @@ function renderBridgeCueFromPlan(plan) {
 
   quoteBlocks[0].querySelector(".eyebrow").textContent = "Earlier / Camille";
   quoteBlocks[0].querySelector("blockquote").textContent = quoteWithMarks(
-    "The real risk is that the demo dies after the weekend."
+    "Talk to someone at Hexa. They see founder meetings and follow-up problems every week."
   );
   quoteBlocks[1].querySelector(".eyebrow").textContent = "Right now / Camille";
   quoteBlocks[1].querySelector("blockquote").textContent = quoteWithMarks(currentQuote);
@@ -1104,7 +1049,7 @@ function findCurrentBridgeQuote(plan) {
   return (
     current?.text ||
     plan.evidence_quote ||
-    "Maybe Nick. I don’t know if he owns this exactly, but he’d know who does."
+    "Maybe Nick. Say you tested it live at Tech Europe and ask if it helps founders keep useful conversations alive."
   );
 }
 
@@ -1231,7 +1176,7 @@ function showFinalMemory() {
     title: "Draft a soft follow-up note to Nick.",
     body: "Say you tested it live at Tech Europe and ask whether it helps founders keep useful conversations from getting lost.",
     proof:
-      "Just say you tested it live at Tech Europe and want to know whether this helps founders avoid losing useful conversations after events.",
+      "Maybe Nick. Say you tested it live at Tech Europe and ask if it helps founders keep useful conversations alive.",
     reason: "Not assuming Nick owns this yet.",
     queued: [],
   });
@@ -1271,24 +1216,25 @@ async function buildProofPayload() {
     evidence: [
       {
         id: "evidence_weekend_risk",
-        speaker: "Camille",
-        quote: "The real risk is that the demo dies after the weekend.",
+        speaker: "Gogo",
+        quote: "I built this today, but I don’t want it to die after the weekend.",
       },
       {
         id: "evidence_hexa_path",
         speaker: "Camille",
-        quote: "I’d talk to someone at Hexa.",
+        quote: "Talk to someone at Hexa. They see founder meetings and follow-up problems every week.",
       },
       {
         id: "evidence_nick_contact",
         speaker: "Camille",
-        quote: "Maybe Nick. I don’t know if he owns this exactly, but he’d know who does.",
+        quote:
+          "Maybe Nick. Say you tested it live at Tech Europe and ask if it helps founders keep useful conversations alive.",
       },
       {
         id: "evidence_soft_note",
         speaker: "Camille",
         quote:
-          "Say you tested it live at Tech Europe and want to know whether this helps founders avoid losing useful conversations after events.",
+          "Maybe Nick. Say you tested it live at Tech Europe and ask if it helps founders keep useful conversations alive.",
       },
     ],
     visible_cues: [
