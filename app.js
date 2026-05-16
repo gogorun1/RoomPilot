@@ -1018,6 +1018,12 @@ async function startLiveMic() {
     const sessionResponse = await withTimeout(
       fetch("/api/realtime/session", {
         method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          diarize: speakerDiarizationEnabled(),
+        }),
       }),
       12000,
       "OpenAI took too long to start. Try Replay."
@@ -1122,10 +1128,6 @@ async function startLiveMic() {
     });
 
     scheduleFallbackTranscriber(liveStream);
-
-    if (speakerDiarizationEnabled()) {
-      startSpeakerDiarizer(liveStream);
-    }
 
     els.liveMic.textContent = "Stop live mic";
     describeLiveState("Connecting.");
@@ -1254,7 +1256,16 @@ function handleRealtimeMessage(message) {
     return;
   }
 
+  if (event.type === "conversation.item.input_audio_transcription.segment") {
+    handleRealtimeSpeakerSegment(event);
+    return;
+  }
+
   if (!isTranscriptionEvent(event)) {
+    return;
+  }
+
+  if (speakerDiarizationEnabled()) {
     return;
   }
 
@@ -1285,6 +1296,26 @@ function handleRealtimeMessage(message) {
 
 function isTranscriptionEvent(event) {
   return event.type?.startsWith("conversation.item.input_audio_transcription.");
+}
+
+function handleRealtimeSpeakerSegment(event) {
+  const segment = normalizeTranscriptionSegments([event])[0];
+  if (!segment) return;
+
+  lastTranscriptAt = Date.now();
+  clearLiveDraftPlannerTimer();
+
+  if (liveDraftLine) {
+    liveDraftLine.remove();
+    liveDraftLine = null;
+  }
+
+  addLiveTranscriptSegment(segment);
+  addPlannerLine({
+    speaker: segment.speaker,
+    text: segment.text,
+  });
+  setLiveStatus("Speaker transcript received", "active");
 }
 
 function extractTranscriptText(event) {

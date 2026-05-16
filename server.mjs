@@ -24,7 +24,7 @@ const server = createServer(async (request, response) => {
     const url = new URL(request.url, `http://${request.headers.host}`);
 
     if (url.pathname === "/api/realtime/session" && request.method === "POST") {
-      await createRealtimeSession(response);
+      await createRealtimeSession(request, response);
       return;
     }
 
@@ -83,7 +83,7 @@ function loadEnvFile(fileName) {
   }
 }
 
-async function createRealtimeSession(response) {
+async function createRealtimeSession(request, response) {
   loadEnvFile(".env");
   loadEnvFile(".env.local");
 
@@ -94,10 +94,14 @@ async function createRealtimeSession(response) {
     return;
   }
 
+  const body = await readJsonBody(request, 8 * 1024).catch(() => ({}));
+  const wantsDiarization = Boolean(body.diarize);
   const transcriptModel =
-    process.env.OPENAI_REALTIME_TRANSCRIBE_MODEL ||
+    (wantsDiarization
+      ? process.env.OPENAI_REALTIME_DIARIZE_MODEL
+      : process.env.OPENAI_REALTIME_TRANSCRIBE_MODEL) ||
     process.env.OPENAI_TRANSCRIBE_MODEL ||
-    "gpt-4o-mini-transcribe";
+    (wantsDiarization ? "gpt-4o-transcribe-diarize" : "gpt-4o-mini-transcribe");
   const realtimeModel = process.env.OPENAI_REALTIME_MODEL || "gpt-realtime";
   const sessionConfig = buildRealtimeTranscriptionSession({
     realtimeModel,
