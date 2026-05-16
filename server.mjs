@@ -5,6 +5,7 @@ import { createServer } from "node:http";
 const root = process.cwd();
 const port = Number(process.env.PORT || 5173);
 const host = process.env.HOST || "127.0.0.1";
+const supportedTranscriptLanguages = new Set(["en", "zh", "fr"]);
 
 loadEnvFile(".env");
 loadEnvFile(".env.local");
@@ -140,16 +141,17 @@ function buildRealtimeTranscriptionSession({ realtimeModel, transcriptModel }) {
   const transcription = {
     model: transcriptModel,
   };
+  const language = getTranscriptionLanguage();
 
-  if (process.env.OPENAI_TRANSCRIBE_LANGUAGE) {
-    transcription.language = process.env.OPENAI_TRANSCRIBE_LANGUAGE;
+  if (language) {
+    transcription.language = language;
   }
 
   return {
     type: "realtime",
     model: realtimeModel,
     instructions:
-      "Only transcribe the user's speech for live captions. Do not answer, greet, encourage, or continue the conversation.",
+      "Only transcribe English, Chinese, or French speech for live captions. Do not translate, answer, greet, encourage, or continue the conversation.",
     audio: {
       input: {
         transcription,
@@ -162,6 +164,35 @@ function buildRealtimeTranscriptionSession({ realtimeModel, transcriptModel }) {
       },
     },
   };
+}
+
+function getTranscriptionLanguage() {
+  const rawLanguage = cleanText(process.env.OPENAI_TRANSCRIBE_LANGUAGE).toLowerCase();
+
+  if (!rawLanguage) return null;
+
+  const normalizedLanguage =
+    {
+      english: "en",
+      chinese: "zh",
+      mandarin: "zh",
+      "zh-cn": "zh",
+      "zh-tw": "zh",
+      cn: "zh",
+      french: "fr",
+      francais: "fr",
+      "français": "fr",
+    }[rawLanguage] || rawLanguage;
+
+  if (supportedTranscriptLanguages.has(normalizedLanguage)) {
+    return normalizedLanguage;
+  }
+
+  console.warn("Ignoring unsupported OPENAI_TRANSCRIBE_LANGUAGE", {
+    language: rawLanguage,
+    supported: Array.from(supportedTranscriptLanguages),
+  });
+  return null;
 }
 
 async function transcribeAudioChunk(request, response) {
@@ -201,8 +232,10 @@ async function transcribeAudioChunk(request, response) {
   form.append("model", model);
   form.append("file", new Blob([audio], { type: contentType }), fileName);
 
-  if (process.env.OPENAI_TRANSCRIBE_LANGUAGE) {
-    form.append("language", process.env.OPENAI_TRANSCRIBE_LANGUAGE);
+  const language = getTranscriptionLanguage();
+
+  if (language) {
+    form.append("language", language);
   }
 
   const upstream = await fetch("https://api.openai.com/v1/audio/transcriptions", {
@@ -366,6 +399,7 @@ function plannerSystemPrompt() {
     "Decide whether the user should act now based only on visible transcript evidence and the user's goal.",
     "Respect the action_gate. If action_gate.should_consider is false, return should_act=false.",
     "If action_gate.focus_quote is present, use that quote as the evidence unless the transcript has a clearer later quote.",
+    "RoomPilot only supports English, Chinese, and French. If the transcript is in another language, return should_act=false.",
     "The UI must feel like a thoughtful friend, not a sales tool.",
     "Never use sales-methodology words in user-visible strings.",
     "Every recommendation must cite one exact evidence quote from the transcript or memory quotes.",
@@ -645,6 +679,18 @@ function evaluateSignalGate(transcript, memoryQuotes) {
     };
   }
 
+  const language = detectSupportedQuoteLanguage(quote);
+
+  if (!language.supported) {
+    return {
+      should_consider: false,
+      fast_path: false,
+      focus_quote: quote,
+      score: 0,
+      reason: "Unsupported language; RoomPilot only supports English, Chinese, and French.",
+    };
+  }
+
   const priorText = transcript
     .filter((line) => line !== latestLine)
     .map((line) => line.text || "")
@@ -680,6 +726,20 @@ function evaluateSignalGate(transcript, memoryQuotes) {
     "没人记得",
     "记不住",
     "丢",
+    "difficile",
+    "compliqué",
+    "complique",
+    "problème",
+    "probleme",
+    "douleur",
+    "mauvais",
+    "personne ne se souvient",
+    "perdre",
+    "perdu",
+    "incohérent",
+    "incoherent",
+    "désorganisé",
+    "desorganise",
   ]);
   const hasFollowUpTopic = hasAny(lowerQuote, [
     "follow up",
@@ -699,37 +759,51 @@ function evaluateSignalGate(transcript, memoryQuotes) {
     "表格",
     "crm",
     "hubspot",
+    "suivi",
+    "relance",
+    "prospect",
+    "prospects",
+    "événement",
+    "evenement",
+    "salon",
+    "après l'événement",
+    "apres l'evenement",
+    "tableur",
   ]);
-  const hasOwner = /head of|owns it|owner|responsible|has to deal|team owns|负责人|负责|谁管|谁来/i.test(
+  const hasOwner = /head of|owns it|owner|responsible|has to deal|team owns|负责人|负责|谁管|谁来|responsable|s'en occupe|équipe croissance|equipe croissance/i.test(
     quote
   );
-  const hasTiming = /\bq[1-4]\b|quarter|before|next month|this month|this week|deadline|push|季度|下个月|这周|本周|截止|之前|推进/i.test(
+  const hasTiming = /\bq[1-4]\b|\bt[1-4]\b|quarter|before|next month|this month|this week|deadline|push|季度|下个月|这周|本周|截止|之前|推进|trimestre|avant|mois prochain|ce mois|cette semaine|échéance|echeance|lancement/i.test(
     quote
   );
-  const hasExplicitIntent = /\b(evaluating|looking for|needs?|wants?|trying to|we should|we have to)\b|正在看|想找|需要|想要|必须|得/i.test(
+  const hasExplicitIntent = /\b(evaluating|looking for|needs?|wants?|trying to|we should|we have to)\b|正在看|想找|需要|想要|必须|得|évaluer|evaluer|cherchons|cherche|besoin|voulons|veulent|essayer|on doit|il faut/i.test(
     quote
   );
-  const hasHesitation = /budget|approval|approve|approved|not approved|blocked|blocker|预算|审批|批准|还没批|卡住|阻力/i.test(
+  const hasHesitation = /budget|approval|approve|approved|not approved|blocked|blocker|预算|审批|批准|还没批|卡住|阻力|approbation|validé|valide|bloqué|bloque|frein/i.test(
     quote
   );
-  const hasTriedSolution = /tried|last time|spreadsheet|hubspot|crm|no one updated|nobody updated|manual|试过|用过|上次|表格|没人更新|手动/i.test(
+  const hasTriedSolution = /tried|last time|spreadsheet|hubspot|crm|no one updated|nobody updated|manual|试过|用过|上次|表格|没人更新|手动|essayé|essaye|testé|teste|dernière fois|derniere fois|personne n'a mis à jour|personne n'a mis a jour|manuel/i.test(
     quote
   );
-  const hasBridgeRequest = /compare notes|know someone|intro|introduce|connect us|talk to someone|认识.*人|介绍|对接|交流|比较|取经/i.test(
+  const hasBridgeRequest = /compare notes|know someone|intro|introduce|connect us|talk to someone|认识.*人|介绍|对接|交流|比较|取经|comparer|échanger|echanger|présenter|presenter|mise en relation|connaissez quelqu'un|parler à quelqu'un|parler a quelqu'un/i.test(
     quote
   );
-  const hasCurrentProcess = /usually|process|workflow|spreadsheet|intern|manual|normally|现在|通常|流程|表格|实习生|手动/i.test(
+  const hasCurrentProcess = /usually|process|workflow|spreadsheet|intern|manual|normally|现在|通常|流程|表格|实习生|手动|généralement|generalement|processus|tableur|stagiaire|manuel/i.test(
     quote
   );
-  const hasPriorContext = /follow[- ]?up|lead|intro|event|跟进|线索|介绍|活动|会后/i.test(
+  const hasPriorContext = /follow[- ]?up|lead|intro|event|跟进|线索|介绍|活动|会后|suivi|relance|prospect|événement|evenement|salon/i.test(
     lowerAll
   );
-  const hadPriorProblem = /hard|difficult|struggle|bad|broken|problem|nobody remembers|lose|lost|inconsistent|consistently|难|麻烦|问题|痛点|没人记得|丢/i.test(
+  const hadPriorProblem = /hard|difficult|struggle|bad|broken|problem|nobody remembers|lose|lost|inconsistent|consistently|难|麻烦|问题|痛点|没人记得|丢|difficile|compliqué|complique|problème|probleme|personne ne se souvient|perdu|désorganisé|desorganise/i.test(
     lowerPrior
   );
   const hasMemoryBridge =
     hasPriorContext &&
-    memoryQuotes.some((item) => /follow[- ]?up|lead|intro|event|跟进|线索|介绍|活动/i.test(item.quote || ""));
+    memoryQuotes.some((item) =>
+      /follow[- ]?up|lead|intro|event|跟进|线索|介绍|活动|suivi|relance|prospect|événement|evenement|salon/i.test(
+        item.quote || ""
+      )
+    );
 
   const duplicateProblemOnly =
     hasProblem &&
@@ -765,6 +839,7 @@ function evaluateSignalGate(transcript, memoryQuotes) {
     fast_path: shouldConsider && (score >= 3 || hasOwner || hasTiming),
     focus_quote: quote,
     score,
+    language: language.code,
     reason: shouldConsider
       ? "Speaker gave a quote-backed problem, owner, timing, or memory bridge."
       : "No new quote-backed move; keep the UI quiet.",
@@ -775,6 +850,52 @@ function isUserLine(line) {
   return /^you$/i.test(cleanText(line.speaker));
 }
 
+function detectSupportedQuoteLanguage(text) {
+  const clean = cleanText(text);
+  const lower = clean.toLowerCase();
+
+  if (!clean) {
+    return { supported: false, code: "unknown" };
+  }
+
+  if (/[\u3400-\u9fff]/.test(clean)) {
+    return { supported: true, code: "zh" };
+  }
+
+  if (/[а-яё\u0370-\u03ff\u0590-\u05ff\u0600-\u06ff\u3040-\u30ff\uac00-\ud7af]/i.test(clean)) {
+    return { supported: false, code: "unsupported" };
+  }
+
+  const hasLatinLetters = /[a-zà-ÿ]/i.test(clean);
+
+  if (!hasLatinLetters) {
+    return { supported: false, code: "unknown" };
+  }
+
+  if (
+    /\b(el|los|las|gracias|hola|nuestro|nuestra|necesitamos|seguimiento|cliente|clientes|problema|presupuesto|aprobaci[oó]n|despu[eé]s)\b/i.test(
+      lower
+    ) ||
+    /\b(der|die|das|und|nicht|kunden|budget|genehmigung|nachverfolgung)\b/i.test(
+      lower
+    ) ||
+    /\b(il|lo|gli|ciao|grazie|bisogno|clienti|approvazione)\b/i.test(lower)
+  ) {
+    return { supported: false, code: "unsupported" };
+  }
+
+  if (
+    /[àâçéèêëîïôûùüÿœæ]/i.test(clean) ||
+    /\b(le|la|les|nous|vous|ils|elles|avec|pour|dans|sur|avant|après|apres|besoin|probl[eè]me|suivi|relance|budget|équipe|equipe)\b/i.test(
+      lower
+    )
+  ) {
+    return { supported: true, code: "fr" };
+  }
+
+  return { supported: true, code: "en" };
+}
+
 function isLowValueQuote(text) {
   const lower = cleanText(text).toLowerCase();
   const hasCjk = /[\u3400-\u9fff]/.test(lower);
@@ -782,7 +903,7 @@ function isLowValueQuote(text) {
   if (!hasCjk && lower.length < 18) return true;
   if (hasCjk && lower.length < 4) return true;
 
-  return /^(yeah|yep|yes|no|okay|ok|sure|right|exactly|cool|nice|thanks|thank you|sounds good|makes sense|好的|好呀|可以|嗯|对|是的|没错|谢谢|太好了)[.!。！ ]*$/i.test(
+  return /^(yeah|yep|yes|no|okay|ok|sure|right|exactly|cool|nice|thanks|thank you|sounds good|makes sense|oui|non|d'accord|merci|super|très bien|tres bien|好的|好呀|可以|嗯|对|是的|没错|谢谢|太好了)[.!。！ ]*$/i.test(
     lower
   );
 }
@@ -795,15 +916,14 @@ function buildLocalPlan(userGoal, transcript, memoryQuotes, signalGate = null) {
   const text = transcript.map((line) => line.text || "").join(" ");
   const gate = signalGate || evaluateSignalGate(transcript, memoryQuotes);
   const quote = gate.focus_quote || "";
-  const lower = text.toLowerCase();
-  const hasOwner = /head of growth|owns it|owner|responsible|负责人|增长负责人|负责|谁管|谁来/i.test(
+  const hasOwner = /head of growth|owns it|owner|responsible|负责人|增长负责人|负责|谁管|谁来|responsable|s'en occupe|équipe croissance|equipe croissance/i.test(
     text
   );
-  const hasTiming = /\bq[1-4]\b|quarter|before|next month|this month|deadline|push|季度|下个月|本周|这周|截止|之前|推进/i.test(
+  const hasTiming = /\bq[1-4]\b|\bt[1-4]\b|quarter|before|next month|this month|deadline|push|季度|下个月|本周|这周|截止|之前|推进|trimestre|avant|mois prochain|ce mois|échéance|echeance|lancement/i.test(
     text
   );
   const bridge = memoryQuotes.find((item) =>
-    /follow-up|follow up|lead|intro|event|跟进|线索|介绍|对接|活动|会后/i.test(
+    /follow-up|follow up|lead|intro|event|跟进|线索|介绍|对接|活动|会后|suivi|relance|prospect|événement|evenement|salon/i.test(
       item.quote || ""
     )
   );

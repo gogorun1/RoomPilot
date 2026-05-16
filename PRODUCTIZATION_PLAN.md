@@ -44,6 +44,8 @@ RoomPilot should not be a question generator. The live cue should stay light, bu
 
 Live conversation should never open Gmail, social media, CRM, or calendar. Live mode can say what should be prepared later. The after-session queue is where integrations appear.
 
+Supported live languages are English, Chinese, and French only. Other languages should stay quiet rather than produce quote-actions.
+
 ## What This Prototype Tests
 
 - Whether the demo feels less like a sales coach.
