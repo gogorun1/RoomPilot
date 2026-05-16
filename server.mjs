@@ -146,7 +146,10 @@ function buildRealtimeTranscriptionSession({ realtimeModel, transcriptModel }) {
   }
 
   return {
-    type: "transcription",
+    type: "realtime",
+    model: realtimeModel,
+    instructions:
+      "Only transcribe the user's speech for live captions. Do not answer, greet, encourage, or continue the conversation.",
     audio: {
       input: {
         transcription,
@@ -774,8 +777,10 @@ function isUserLine(line) {
 
 function isLowValueQuote(text) {
   const lower = cleanText(text).toLowerCase();
+  const hasCjk = /[\u3400-\u9fff]/.test(lower);
 
-  if (lower.length < 18) return true;
+  if (!hasCjk && lower.length < 18) return true;
+  if (hasCjk && lower.length < 4) return true;
 
   return /^(yeah|yep|yes|no|okay|ok|sure|right|exactly|cool|nice|thanks|thank you|sounds good|makes sense|好的|好呀|可以|嗯|对|是的|没错|谢谢|太好了)[.!。！ ]*$/i.test(
     lower
@@ -791,14 +796,19 @@ function buildLocalPlan(userGoal, transcript, memoryQuotes, signalGate = null) {
   const gate = signalGate || evaluateSignalGate(transcript, memoryQuotes);
   const quote = gate.focus_quote || "";
   const lower = text.toLowerCase();
-  const hasFollowUp = lower.includes("follow") || lower.includes("lead");
-  const hasOwner = lower.includes("head of growth") || lower.includes("owns it");
-  const hasTiming = lower.includes("q3") || lower.includes("quarter");
+  const hasOwner = /head of growth|owns it|owner|responsible|负责人|增长负责人|负责|谁管|谁来/i.test(
+    text
+  );
+  const hasTiming = /\bq[1-4]\b|quarter|before|next month|this month|deadline|push|季度|下个月|本周|这周|截止|之前|推进/i.test(
+    text
+  );
   const bridge = memoryQuotes.find((item) =>
-    /follow-up|follow up|event/i.test(item.quote || "")
+    /follow-up|follow up|lead|intro|event|跟进|线索|介绍|对接|活动|会后/i.test(
+      item.quote || ""
+    )
   );
 
-  if (!quote || !gate.should_consider || !hasFollowUp) {
+  if (!quote || !gate.should_consider) {
     return emptyPlan(userGoal);
   }
 

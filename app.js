@@ -531,9 +531,9 @@ async function runPlanner() {
 }
 
 function renderPlannerPlan(plan) {
-  els.plannerState.textContent = plan.should_act ? "found a move" : "staying quiet";
-
   if (!plan.should_act) {
+    els.plannerState.textContent = hasPlannerSuggestion ? "holding last move" : "staying quiet";
+
     if (!hasPlannerSuggestion) {
       setHidden(els.beat1Cue, true);
       setHidden(els.actionPalette, true);
@@ -552,6 +552,7 @@ function renderPlannerPlan(plan) {
     return;
   }
 
+  els.plannerState.textContent = "found a move";
   setHidden(els.emptyCue, true);
   hasPlannerSuggestion = true;
   setHidden(els.evidenceCapture, true);
@@ -1141,6 +1142,15 @@ function handleRealtimeMessage(message) {
     return;
   }
 
+  if (event.type?.startsWith("response.")) {
+    cancelAssistantResponse(event);
+    return;
+  }
+
+  if (event.item?.role === "assistant") {
+    return;
+  }
+
   if (!isTranscriptionEvent(event)) {
     return;
   }
@@ -1171,6 +1181,23 @@ function handleRealtimeMessage(message) {
 
 function isTranscriptionEvent(event) {
   return event.type?.startsWith("conversation.item.input_audio_transcription.");
+}
+
+function cancelAssistantResponse(event) {
+  const responseId = event.response?.id || event.response_id;
+
+  if (
+    event.type === "response.created" &&
+    responseId &&
+    liveDataChannel?.readyState === "open"
+  ) {
+    liveDataChannel.send(
+      JSON.stringify({
+        type: "response.cancel",
+        response_id: responseId,
+      })
+    );
+  }
 }
 
 function extractTranscriptText(event) {
