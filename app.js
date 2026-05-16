@@ -602,7 +602,7 @@ function addTranscript(line) {
   return item;
 }
 
-function streamTranscript(line) {
+function streamTranscript(line, options = {}) {
   const item = addTranscript({
     ...line,
     text: "",
@@ -614,6 +614,12 @@ function streamTranscript(line) {
 
   item.classList.add("is-live-draft");
 
+  if (!parts.length) {
+    item.classList.remove("is-live-draft");
+    options.onComplete?.();
+    return;
+  }
+
   parts.forEach((part, index) => {
     timers.push(
       window.setTimeout(() => {
@@ -623,6 +629,7 @@ function streamTranscript(line) {
         if (index === parts.length - 1) {
           item.classList.remove("is-live-draft");
           textElement.textContent = line.text;
+          options.onComplete?.();
         }
       }, index * stepMs)
     );
@@ -1304,6 +1311,22 @@ function schedule(type, at) {
   timers.push(window.setTimeout(callbacks[type], at));
 }
 
+function scheduleDemoCueAfterTranscript(line) {
+  const cueCallbacks = {
+    t3: () => {
+      showBeat1();
+      timers.push(window.setTimeout(showAskQuestion, 1100));
+    },
+    t4: escalateMemory,
+    t6: () => {
+      showBeat2();
+      timers.push(window.setTimeout(showFinalMemory, 1500));
+    },
+  };
+
+  cueCallbacks[line.id]?.();
+}
+
 function startDemo() {
   resetDemo();
   setSessionActive(true);
@@ -1315,13 +1338,11 @@ function startDemo() {
     timers.push(
       window.setTimeout(() => {
         speakDemoLine(line);
-        streamTranscript(line);
+        streamTranscript(line, {
+          onComplete: () => scheduleDemoCueAfterTranscript(line),
+        });
       }, line.at)
     );
-  });
-
-  (timeline.events || []).forEach((event) => {
-    schedule(event.type, event.at);
   });
 }
 
