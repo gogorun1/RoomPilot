@@ -159,14 +159,23 @@ async function transcribeAudioChunk(request, response) {
   }
 
   const form = new FormData();
-  const contentType = request.headers["content-type"] || "audio/webm";
+  const contentType = normalizeAudioContentType(
+    request.headers["content-type"] || "audio/webm"
+  );
+  const fileName = contentType === "audio/mp4" ? "roompilot.mp4" : "roompilot.webm";
   const model =
     process.env.OPENAI_AUDIO_TRANSCRIBE_MODEL ||
     process.env.OPENAI_TRANSCRIBE_MODEL ||
     "gpt-4o-mini-transcribe";
 
+  console.log("Transcribe chunk", {
+    bytes: audio.length,
+    contentType,
+    model,
+  });
+
   form.append("model", model);
-  form.append("file", new Blob([audio], { type: contentType }), "roompilot.webm");
+  form.append("file", new Blob([audio], { type: contentType }), fileName);
 
   if (process.env.OPENAI_TRANSCRIBE_LANGUAGE) {
     form.append("language", process.env.OPENAI_TRANSCRIBE_LANGUAGE);
@@ -183,6 +192,10 @@ async function transcribeAudioChunk(request, response) {
   const payload = await upstream.json().catch(() => ({}));
 
   if (!upstream.ok) {
+    console.warn("Transcription failed", {
+      status: upstream.status,
+      error: payload.error?.message,
+    });
     sendJson(response, upstream.status, {
       error: payload.error?.message || "OpenAI transcription failed",
       details: payload,
@@ -194,6 +207,16 @@ async function transcribeAudioChunk(request, response) {
     text: payload.text || "",
     model,
   });
+
+  console.log("Transcription complete", {
+    chars: (payload.text || "").length,
+  });
+}
+
+function normalizeAudioContentType(type) {
+  if (type.startsWith("audio/mp4")) return "audio/mp4";
+  if (type.startsWith("audio/webm")) return "audio/webm";
+  return "audio/webm";
 }
 
 function serveStatic(request, response) {

@@ -748,6 +748,7 @@ function startFallbackTranscriber(stream) {
 
   fallbackRecorder.addEventListener("dataavailable", (event) => {
     if (!event.data || event.data.size < 1500) return;
+    setLiveStatus(`Captured audio ${Math.round(event.data.size / 1024)}KB`, "active");
     transcribeFallbackChunk(event.data);
   });
 
@@ -772,20 +773,24 @@ function stopFallbackTranscriber() {
 
 async function transcribeFallbackChunk(blob) {
   if (fallbackTranscribeInFlight) return;
-  if (lastLiveAudioLevel < 0.04) return;
   if (!livePeer) return;
 
   fallbackTranscribeInFlight = true;
   const attemptId = liveAttemptId;
+  setLiveStatus("Sending audio for transcript", "active");
 
   try {
-    const response = await fetch("/api/transcribe", {
-      method: "POST",
-      headers: {
-        "Content-Type": blob.type || "audio/webm",
-      },
-      body: blob,
-    });
+    const response = await withTimeout(
+      fetch("/api/transcribe", {
+        method: "POST",
+        headers: {
+          "Content-Type": normalizeAudioContentType(blob.type),
+        },
+        body: blob,
+      }),
+      14000,
+      "Transcription took too long"
+    );
     const payload = await response.json();
 
     if (!response.ok) {
@@ -794,7 +799,16 @@ async function transcribeFallbackChunk(blob) {
 
     const text = normalizeTranscript(payload.text);
 
-    if (!text || text === lastFallbackTranscript) return;
+    if (!text) {
+      describeLiveState("No words in last chunk.");
+      return;
+    }
+
+    if (text === lastFallbackTranscript) {
+      describeLiveState("Already captured that line.");
+      return;
+    }
+
     if (!livePeer || attemptId !== liveAttemptId) return;
 
     lastFallbackTranscript = text;
@@ -806,10 +820,16 @@ async function transcribeFallbackChunk(blob) {
     setLiveStatus("Transcript received", "active");
   } catch (error) {
     console.warn(error);
-    describeLiveState("Heard audio. Waiting for words.");
+    setLiveStatus(error.message, "error");
   } finally {
     fallbackTranscribeInFlight = false;
   }
+}
+
+function normalizeAudioContentType(type) {
+  if (type?.startsWith("audio/mp4")) return "audio/mp4";
+  if (type?.startsWith("audio/webm")) return "audio/webm";
+  return "audio/webm";
 }
 
 function normalizeTranscript(text) {
