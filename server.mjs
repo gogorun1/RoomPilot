@@ -221,7 +221,7 @@ async function transcribeAudioChunk(request, response) {
   const model =
     process.env.OPENAI_AUDIO_TRANSCRIBE_MODEL ||
     process.env.OPENAI_TRANSCRIBE_MODEL ||
-    "gpt-4o-mini-transcribe";
+    "gpt-4o-transcribe-diarize";
 
   console.log("Transcribe chunk", {
     bytes: audio.length,
@@ -231,6 +231,13 @@ async function transcribeAudioChunk(request, response) {
 
   form.append("model", model);
   form.append("file", new Blob([audio], { type: contentType }), fileName);
+
+  const wantsDiarization = model.includes("diarize");
+
+  if (wantsDiarization) {
+    form.append("response_format", "diarized_json");
+    form.append("chunking_strategy", "auto");
+  }
 
   const language = getTranscriptionLanguage();
 
@@ -262,12 +269,37 @@ async function transcribeAudioChunk(request, response) {
 
   sendJson(response, 200, {
     text: payload.text || "",
+    segments: normalizeTranscriptionSegments(payload),
     model,
   });
 
   console.log("Transcription complete", {
     chars: (payload.text || "").length,
   });
+}
+
+function normalizeTranscriptionSegments(payload) {
+  const segments = Array.isArray(payload.segments) ? payload.segments : [];
+
+  return segments
+    .map((segment) => ({
+      speaker: normalizeSpeakerLabel(segment.speaker),
+      text: cleanText(segment.text),
+      start: typeof segment.start === "number" ? segment.start : null,
+      end: typeof segment.end === "number" ? segment.end : null,
+    }))
+    .filter((segment) => segment.text);
+}
+
+function normalizeSpeakerLabel(speaker) {
+  const label = cleanText(speaker);
+
+  if (!label) return "Speaker";
+
+  return label
+    .replace(/^speaker[_\s-]?/i, "Speaker ")
+    .replace(/\s+/g, " ")
+    .trim();
 }
 
 async function planActions(request, response) {

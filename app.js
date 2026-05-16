@@ -238,6 +238,10 @@ const els = {
 
 const userGoal = "Find useful follow-up after Tech Europe.";
 
+function speakerDiarizationEnabled() {
+  return new URLSearchParams(window.location.search).get("speakerMode") !== "0";
+}
+
 async function loadData() {
   try {
     const [seedResponse, timelineResponse] = await Promise.all([
@@ -436,6 +440,22 @@ function addLiveTranscript(text, options = {}) {
       finalizeDraft: options.render === false,
     }
   );
+}
+
+function addLiveTranscriptSegment(segment) {
+  const text = normalizeTranscript(segment.text);
+  if (!text) return;
+
+  const speaker = normalizeSpeakerLabel(segment.speaker);
+
+  addTranscript({
+    speaker,
+    text,
+  });
+  addPlannerLine({
+    speaker,
+    text,
+  });
 }
 
 function addPlannerLine(line, options = {}) {
@@ -1056,7 +1076,11 @@ async function startLiveMic() {
     liveDataChannel.addEventListener("open", () => {
       lastTranscriptAt = Date.now();
       describeLiveState("Listening. Speak, then pause.");
-      scheduleFallbackTranscriber(liveStream);
+      if (speakerDiarizationEnabled()) {
+        startFallbackTranscriber(liveStream);
+      } else {
+        scheduleFallbackTranscriber(liveStream);
+      }
     });
     liveDataChannel.addEventListener("message", handleRealtimeMessage);
     liveDataChannel.addEventListener("error", () => {
@@ -1092,7 +1116,12 @@ async function startLiveMic() {
       type: "answer",
       sdp: await sdpResponse.text(),
     });
-    scheduleFallbackTranscriber(liveStream);
+
+    if (speakerDiarizationEnabled()) {
+      startFallbackTranscriber(liveStream);
+    } else {
+      scheduleFallbackTranscriber(liveStream);
+    }
 
     els.liveMic.textContent = "Stop live mic";
     describeLiveState("Connecting.");
@@ -1223,6 +1252,10 @@ function handleRealtimeMessage(message) {
     return;
   }
 
+  if (speakerDiarizationEnabled()) {
+    return;
+  }
+
   const transcript = extractTranscriptText(event);
 
   if (!transcript) return;
@@ -1330,6 +1363,8 @@ function scheduleFallbackTranscriber(stream) {
 }
 
 function startFallbackTranscriber(stream) {
+  if (fallbackTranscriberActive) return;
+
   fallbackTranscriberActive = true;
 
   if (!window.MediaRecorder) {
@@ -1451,6 +1486,28 @@ async function transcribeFallbackChunk(blob) {
     }
 
     const text = normalizeTranscript(payload.text);
+    const segments = normalizeTranscriptionSegments(payload.segments);
+
+    if (segments.length > 0) {
+      const transcriptKey = segments
+        .map((segment) => `${segment.speaker}: ${segment.text}`)
+        .join("\n");
+
+      if (transcriptKey === lastFallbackTranscript) {
+        describeLiveState("Already captured that speaker turn.");
+        return;
+      }
+
+      if (!livePeer || !fallbackTranscriberActive || attemptId !== liveAttemptId) {
+        return;
+      }
+
+      lastFallbackTranscript = transcriptKey;
+      lastTranscriptAt = Date.now();
+      segments.forEach(addLiveTranscriptSegment);
+      setLiveStatus("Speaker transcript received", "active");
+      return;
+    }
 
     if (!text) {
       describeLiveState("No words in last chunk.");
@@ -1497,6 +1554,30 @@ function normalizeAudioContentType(type) {
 
 function normalizeTranscript(text) {
   return String(text || "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function normalizeTranscriptionSegments(segments) {
+  if (!Array.isArray(segments)) return [];
+
+  return segments
+    .map((segment) => ({
+      speaker: normalizeSpeakerLabel(segment.speaker),
+      text: normalizeTranscript(segment.text),
+      start: typeof segment.start === "number" ? segment.start : null,
+      end: typeof segment.end === "number" ? segment.end : null,
+    }))
+    .filter((segment) => segment.text);
+}
+
+function normalizeSpeakerLabel(speaker) {
+  const label = normalizeTranscript(speaker);
+
+  if (!label) return "Speaker";
+
+  return label
+    .replace(/^speaker[_\s-]?/i, "Speaker ")
     .replace(/\s+/g, " ")
     .trim();
 }
