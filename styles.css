@@ -550,6 +550,23 @@ main {
   background: var(--white);
 }
 
+.transcript-line.is-live-draft p::after {
+  content: "";
+  display: inline-block;
+  width: 6px;
+  height: 1em;
+  margin-left: 2px;
+  vertical-align: -0.12em;
+  background: var(--ink);
+  animation: transcript-caret 0.8s steps(1) infinite;
+}
+
+@keyframes transcript-caret {
+  50% {
+    opacity: 0;
+  }
+}
+
 .cue-stage {
   position: relative;
   display: grid;

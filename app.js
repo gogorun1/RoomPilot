@@ -640,6 +640,35 @@ function addTranscript(line) {
 
   els.transcriptList.appendChild(item);
   els.transcriptList.scrollTop = els.transcriptList.scrollHeight;
+
+  return item;
+}
+
+function streamTranscript(line) {
+  const item = addTranscript({
+    ...line,
+    text: "",
+  });
+  const textElement = item.querySelector("p");
+  const parts = String(line.text || "").match(/\S+\s*/g) || [];
+  const duration = Math.max(900, Math.min(2200, parts.length * 95));
+  const stepMs = parts.length ? duration / parts.length : duration;
+
+  item.classList.add("is-live-draft");
+
+  parts.forEach((part, index) => {
+    timers.push(
+      window.setTimeout(() => {
+        textElement.textContent += part;
+        els.transcriptList.scrollTop = els.transcriptList.scrollHeight;
+
+        if (index === parts.length - 1) {
+          item.classList.remove("is-live-draft");
+          textElement.textContent = line.text;
+        }
+      }, index * stepMs)
+    );
+  });
 }
 
 function addLiveTranscript(text, options = {}) {
@@ -1327,7 +1356,7 @@ function startDemo() {
     timers.push(
       window.setTimeout(() => {
         speakDemoLine(line);
-        addTranscript(line);
+        streamTranscript(line);
       }, line.at)
     );
   });
