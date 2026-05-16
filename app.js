@@ -78,6 +78,9 @@ let liveAudioContext = null;
 let liveAudioLevelTimer = null;
 let lastLiveAudioLevel = 0;
 let lastTranscriptAt = 0;
+let fallbackRecorder = null;
+let fallbackTranscribeInFlight = false;
+let lastFallbackTranscript = "";
 
 const statusMessages = [
   "Thinking through your next move",
@@ -581,6 +584,7 @@ async function startLiveMic() {
       setLiveStatus("Realtime event channel failed. Use Replay.", "error");
     });
     startAudioLevelMonitor(liveStream);
+    startFallbackTranscriber(liveStream);
 
     const offer = await livePeer.createOffer();
     await livePeer.setLocalDescription(offer);
@@ -638,6 +642,8 @@ function stopLiveMic() {
   liveDraftLine = null;
   lastLiveAudioLevel = 0;
   lastTranscriptAt = 0;
+  lastFallbackTranscript = "";
+  stopFallbackTranscriber();
   els.liveMic.textContent = "Try live mic";
   setLiveStatus("Live mic idle");
 }
@@ -727,6 +733,89 @@ function updateLiveDraft(delta) {
   const textElement = liveDraftLine.querySelector("p");
   textElement.textContent += delta;
   els.transcriptList.scrollTop = els.transcriptList.scrollHeight;
+}
+
+function startFallbackTranscriber(stream) {
+  stopFallbackTranscriber();
+
+  if (!window.MediaRecorder) {
+    console.warn("MediaRecorder is not available in this browser.");
+    return;
+  }
+
+  const recorderOptions = getRecorderOptions();
+  fallbackRecorder = new MediaRecorder(stream, recorderOptions);
+
+  fallbackRecorder.addEventListener("dataavailable", (event) => {
+    if (!event.data || event.data.size < 1500) return;
+    transcribeFallbackChunk(event.data);
+  });
+
+  fallbackRecorder.start(4000);
+}
+
+function getRecorderOptions() {
+  const mimeTypes = ["audio/webm;codecs=opus", "audio/webm", "audio/mp4"];
+  const mimeType = mimeTypes.find((type) => MediaRecorder.isTypeSupported(type));
+
+  return mimeType ? { mimeType } : {};
+}
+
+function stopFallbackTranscriber() {
+  if (fallbackRecorder && fallbackRecorder.state !== "inactive") {
+    fallbackRecorder.stop();
+  }
+
+  fallbackRecorder = null;
+  fallbackTranscribeInFlight = false;
+}
+
+async function transcribeFallbackChunk(blob) {
+  if (fallbackTranscribeInFlight) return;
+  if (lastLiveAudioLevel < 0.04) return;
+  if (!livePeer) return;
+
+  fallbackTranscribeInFlight = true;
+  const attemptId = liveAttemptId;
+
+  try {
+    const response = await fetch("/api/transcribe", {
+      method: "POST",
+      headers: {
+        "Content-Type": blob.type || "audio/webm",
+      },
+      body: blob,
+    });
+    const payload = await response.json();
+
+    if (!response.ok) {
+      throw new Error(payload.error || "Chunk transcription failed");
+    }
+
+    const text = normalizeTranscript(payload.text);
+
+    if (!text || text === lastFallbackTranscript) return;
+    if (!livePeer || attemptId !== liveAttemptId) return;
+
+    lastFallbackTranscript = text;
+    lastTranscriptAt = Date.now();
+    addTranscript({
+      speaker: "Heard",
+      text,
+    });
+    setLiveStatus("Transcript received", "active");
+  } catch (error) {
+    console.warn(error);
+    describeLiveState("Heard audio. Waiting for words.");
+  } finally {
+    fallbackTranscribeInFlight = false;
+  }
+}
+
+function normalizeTranscript(text) {
+  return String(text || "")
+    .replace(/\s+/g, " ")
+    .trim();
 }
 
 function startAudioLevelMonitor(stream) {

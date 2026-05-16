@@ -27,6 +27,11 @@ const server = createServer(async (request, response) => {
       return;
     }
 
+    if (url.pathname === "/api/transcribe" && request.method === "POST") {
+      await transcribeAudioChunk(request, response);
+      return;
+    }
+
     if (request.method !== "GET" && request.method !== "HEAD") {
       sendJson(response, 405, { error: "Method not allowed" });
       return;
@@ -135,6 +140,62 @@ async function createRealtimeSession(response) {
   });
 }
 
+async function transcribeAudioChunk(request, response) {
+  loadEnvFile(".env");
+  loadEnvFile(".env.local");
+
+  if (!process.env.OPENAI_API_KEY) {
+    sendJson(response, 501, {
+      error: "OPENAI_API_KEY is missing in .env.local",
+    });
+    return;
+  }
+
+  const audio = await readRequestBody(request, 8 * 1024 * 1024);
+
+  if (audio.length < 1200) {
+    sendJson(response, 400, { error: "Audio chunk is too small" });
+    return;
+  }
+
+  const form = new FormData();
+  const contentType = request.headers["content-type"] || "audio/webm";
+  const model =
+    process.env.OPENAI_AUDIO_TRANSCRIBE_MODEL ||
+    process.env.OPENAI_TRANSCRIBE_MODEL ||
+    "gpt-4o-mini-transcribe";
+
+  form.append("model", model);
+  form.append("file", new Blob([audio], { type: contentType }), "roompilot.webm");
+
+  if (process.env.OPENAI_TRANSCRIBE_LANGUAGE) {
+    form.append("language", process.env.OPENAI_TRANSCRIBE_LANGUAGE);
+  }
+
+  const upstream = await fetch("https://api.openai.com/v1/audio/transcriptions", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
+    },
+    body: form,
+  });
+
+  const payload = await upstream.json().catch(() => ({}));
+
+  if (!upstream.ok) {
+    sendJson(response, upstream.status, {
+      error: payload.error?.message || "OpenAI transcription failed",
+      details: payload,
+    });
+    return;
+  }
+
+  sendJson(response, 200, {
+    text: payload.text || "",
+    model,
+  });
+}
+
 function serveStatic(request, response) {
   const url = new URL(request.url, `http://${request.headers.host}`);
   const requestedPath = url.pathname === "/" ? "/index.html" : url.pathname;
@@ -176,6 +237,28 @@ function isAllowedStaticPath(pathname) {
     pathname === "/styles.css" ||
     pathname.startsWith("/data/")
   );
+}
+
+function readRequestBody(request, maxBytes) {
+  return new Promise((resolve, reject) => {
+    const chunks = [];
+    let total = 0;
+
+    request.on("data", (chunk) => {
+      total += chunk.length;
+
+      if (total > maxBytes) {
+        reject(new Error("Request body too large"));
+        request.destroy();
+        return;
+      }
+
+      chunks.push(chunk);
+    });
+
+    request.on("end", () => resolve(Buffer.concat(chunks)));
+    request.on("error", reject);
+  });
 }
 
 function sendJson(response, status, payload) {
