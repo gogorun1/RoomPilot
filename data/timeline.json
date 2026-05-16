@@ -2,35 +2,97 @@
   "transcript": [
     {
       "id": "t1",
-      "speaker": "You",
-      "text": "Tell me what usually happens after an event like this.",
-      "at": 4600
+      "speaker": "Heard",
+      "text": "Hi, I’m Gogo. I’m building RoomPilot today: it helps me turn live conversations into the next useful move.",
+      "at": 3200
     },
     {
       "id": "t2",
-      "speaker": "Today's speaker",
-      "text": "Honestly, our event leads are hard to follow up consistently.",
-      "at": 7600,
-      "hero": true
+      "speaker": "Heard",
+      "text": "I’m Camille. Nice to meet you. I work with founder programs around events, so I’ve seen this kind of problem a lot.",
+      "at": 5400
     },
     {
       "id": "t3",
-      "speaker": "Today's speaker",
-      "text": "We meet useful people, but two weeks later nobody remembers who needed what.",
-      "at": 9800
+      "speaker": "Gogo",
+      "text": "Nice. How has the hackathon been for you so far? It’s a pretty intense room.",
+      "at": 7800
     },
     {
       "id": "t4",
-      "speaker": "You",
-      "text": "Who has to deal with this after the event?",
-      "at": 17600
+      "speaker": "Camille",
+      "text": "Yeah, intense but good. I’ve had too much coffee already, but the projects are strong.",
+      "at": 10200
     },
     {
       "id": "t5",
-      "speaker": "Today's speaker",
-      "text": "Head of Growth owns it. They want something before the Q3 event push.",
-      "at": 21800,
+      "speaker": "Gogo",
+      "text": "I built this RoomPilot demo today, but I’m honestly not sure what the next step is after the hackathon. I don’t want it to just become another weekend project.",
+      "at": 13200
+    },
+    {
+      "id": "t6",
+      "speaker": "Camille",
+      "text": "Yeah, that happens a lot. You get a demo working, everyone says it’s cool, and then Monday comes and nobody knows who to talk to.",
+      "at": 16200,
+      "hero": true
+    },
+    {
+      "id": "t7",
+      "speaker": "Camille",
+      "text": "The real risk is that the demo dies after the weekend.",
+      "at": 18600
+    },
+    {
+      "id": "t8",
+      "speaker": "Gogo",
+      "text": "That is exactly what I’m worried about. Who do you think would actually care enough to try something like this next week?",
+      "at": 24400
+    },
+    {
+      "id": "t9",
+      "speaker": "Camille",
+      "text": "I’d talk to someone at Hexa. They see a lot of founder meetings and event follow-up problems. There’s probably a team or partner there who would understand this immediately.",
+      "at": 28600,
       "evidence": true
+    },
+    {
+      "id": "t10",
+      "speaker": "Gogo",
+      "text": "Okay, that helps. Who at Hexa would be the right first person to talk to?",
+      "at": 34800
+    },
+    {
+      "id": "t11",
+      "speaker": "Camille",
+      "text": "Maybe Nick. I don’t know if he owns this exactly, but he’d know who does. I can send you his email, or you can probably find him on LinkedIn.",
+      "at": 38600,
+      "evidence": true
+    },
+    {
+      "id": "t12",
+      "speaker": "Gogo",
+      "text": "Amazing. I’ll keep it light. What should I ask him without sounding like I’m pitching too hard?",
+      "at": 44400
+    },
+    {
+      "id": "t13",
+      "speaker": "Camille",
+      "text": "Just say you tested it live at Tech Europe and want to know whether this helps founders avoid losing useful conversations after events.",
+      "at": 48200,
+      "evidence": true
+    },
+    {
+      "id": "t14",
+      "speaker": "Gogo",
+      "text": "That’s perfect. Thanks, Camille. Good luck with the rest of the demos.",
+      "at": 52200
+    },
+    {
+      "id": "t15",
+      "speaker": "Camille",
+      "text": "You too. I’ll send Nick’s contact later if I find the right one.",
+      "at": 54800
     }
   ],
   "events": [
@@ -40,23 +102,23 @@
     },
     {
       "type": "beat1",
-      "at": 10800
+      "at": 19800
     },
     {
       "type": "askQuestion",
-      "at": 16400
+      "at": 23200
     },
     {
       "type": "escalateMemory",
-      "at": 24200
-    },
-    {
-      "type": "beat2",
       "at": 31000
     },
     {
+      "type": "beat2",
+      "at": 40800
+    },
+    {
       "type": "showFinalMemory",
-      "at": 38600
+      "at": 50000
     }
   ]
 }

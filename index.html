@@ -71,7 +71,7 @@
             <div class="evidence-cue is-hidden" id="beat1Cue">
               <div class="quote-block">
                 <p class="eyebrow">Quote</p>
-                <blockquote>"Our event leads are hard to follow up consistently."</blockquote>
+                <blockquote>"The real risk is that the demo dies after the weekend."</blockquote>
               </div>
               <div class="connector-line" aria-hidden="true"></div>
               <div class="cue-block">
@@ -79,20 +79,20 @@
                   <p class="eyebrow">Suggestion</p>
                   <span class="confidence high">Confidence: high</span>
                 </div>
-                <h2>They described a follow-up problem, but not who feels it most. Ask who has to deal with this after the event.</h2>
-                <p class="not-claiming">They have not named who decides yet.</p>
+                <h2>They named the real risk. Ask who would care enough to try this next week.</h2>
+                <p class="not-claiming">Not assuming anyone has agreed to help yet.</p>
               </div>
             </div>
 
             <div class="evidence-cue is-hidden" id="beat2Cue">
               <div class="quote-pair">
                 <div class="quote-block compact">
-                  <p class="eyebrow">Yesterday / Sarah, Station F</p>
-                  <blockquote>"We're evaluating tools for event follow-up this quarter."</blockquote>
+                  <p class="eyebrow">Earlier / Camille</p>
+                  <blockquote>"The real risk is that the demo dies after the weekend."</blockquote>
                 </div>
                 <div class="quote-block compact">
-                  <p class="eyebrow">Right now / Today's speaker</p>
-                  <blockquote>"Our event leads are hard to follow up consistently."</blockquote>
+                  <p class="eyebrow">Right now / Camille</p>
+                  <blockquote>"Maybe Nick. I don’t know if he owns this exactly, but he’d know who does."</blockquote>
                 </div>
               </div>
               <div class="cue-block bridge">
@@ -100,95 +100,112 @@
                   <p class="eyebrow">Suggestion</p>
                   <span class="confidence medium">Confidence: medium</span>
                 </div>
-                <h2>Sarah described the same follow-up problem yesterday. Worth asking if they want to compare notes.</h2>
-                <p class="not-claiming">This only links the two quotes. It does not assume they know each other.</p>
+                <h2>Nick may know the path. Ask for the best contact route before drafting anything.</h2>
+                <p class="not-claiming">Not assuming Nick owns this yet.</p>
               </div>
             </div>
 
             <div class="evidence-capture is-hidden" id="evidenceCapture">
               <p class="eyebrow">New quote</p>
-              <blockquote>"Head of Growth owns it. They want something before the Q3 event push."</blockquote>
+              <blockquote>"I’d talk to someone at Hexa."</blockquote>
               <button type="button">delete this evidence</button>
             </div>
           </section>
 
-          <aside class="memory-panel" aria-label="Opportunity memory">
+          <aside class="memory-panel action-panel" aria-label="Next thing to do">
             <div class="panel-heading">
-              <p class="eyebrow">Memory</p>
+              <p class="eyebrow">Next Thing To Do</p>
               <span id="memoryState">waiting</span>
             </div>
-            <div class="graph-wrap">
-              <svg viewBox="0 0 100 100" role="img" aria-label="Opportunity graph" id="graphSvg">
-                <line class="edge bridge-edge" x1="18" y1="28" x2="78" y2="74"></line>
-                <line class="edge soft-edge" x1="72" y1="24" x2="78" y2="74"></line>
-                <line class="edge soft-edge" x1="30" y1="76" x2="78" y2="74"></line>
-                <g class="node seed-node sarah-node" transform="translate(18 28)">
-                  <circle r="5.4"></circle>
-                  <text x="7" y="1.5">Sarah</text>
-                </g>
-                <g class="node seed-node" transform="translate(72 24)">
-                  <circle r="4.6"></circle>
-                  <text x="-27" y="1.5">Marc</text>
-                </g>
-                <g class="node seed-node" transform="translate(30 76)">
-                  <circle r="4.6"></circle>
-                  <text x="7" y="1.5">Lina</text>
-                </g>
-                <g class="node today-node" transform="translate(78 74)">
-                  <circle r="6.2"></circle>
-                  <text x="-34" y="10">Today</text>
-                </g>
-              </svg>
+
+            <div class="action-card-stack" id="rightActionCards" aria-live="polite">
+              <article class="right-action-card is-empty">
+                <h2>Waiting for a useful next move.</h2>
+                <p>Cards appear here only when RoomPilot has a quote-backed action.</p>
+              </article>
             </div>
 
-            <div class="memory-card" id="memoryCard">
-              <dl>
-                <div>
-                  <dt>What they said</dt>
-                  <dd id="needText">Waiting for a quote.</dd>
-                </div>
-                <div>
-                  <dt>Who seems closest to it</dt>
-                  <dd id="ownerText">Not named yet.</dd>
-                </div>
-                <div>
-                  <dt>When it matters</dt>
-                  <dd id="timingText">Not named yet.</dd>
-                </div>
-                <div>
-                  <dt>Still unknown</dt>
-                  <dd id="unknownText">Who would try this first.</dd>
-                </div>
-                <div class="memory-note-row">
-                  <dt>Possible next note</dt>
-                  <dd id="noteText">No note yet.</dd>
-                </div>
-              </dl>
+            <div class="right-panel-footer">
+              <button type="button" class="secondary-action" id="exportProof">Export proof</button>
             </div>
 
-            <div class="action-palette is-hidden" id="actionPalette" aria-label="Possible next moves">
-              <div class="panel-heading compact-heading">
-                <p class="eyebrow">Possible next moves</p>
-                <span id="actionPaletteState">choosing</span>
+            <div class="right-state-store" aria-hidden="true">
+              <div class="next-card is-hidden" id="nextCard" aria-label="Next thing to do">
+                <p class="eyebrow">Next thing to do</p>
+                <h2 id="nextCardTitle">Ask who at Hexa to start with.</h2>
+                <p id="nextCardBody">
+                  Get the name first. Email or LinkedIn can wait until after the conversation.
+                </p>
               </div>
-              <div class="action-chip-list" id="actionChipList"></div>
-              <p id="actionReasonText">Waiting for enough proof.</p>
-            </div>
 
-            <div class="action-queue is-hidden" id="actionQueue" aria-label="After-session actions">
-              <p class="eyebrow">After this conversation</p>
-              <div class="queued-actions" id="queuedActions"></div>
-            </div>
+              <div class="action-palette is-hidden" id="actionPalette" aria-label="Possible next moves">
+                <div class="panel-heading compact-heading">
+                  <p class="eyebrow">Possible next moves</p>
+                  <span id="actionPaletteState">choosing</span>
+                </div>
+                <div class="action-chip-list" id="actionChipList"></div>
+                <p id="actionReasonText">Waiting for enough proof.</p>
+              </div>
 
-            <div class="next-card is-hidden" id="nextCard" aria-label="Next thing to do">
-              <p class="eyebrow">Next thing to do</p>
-              <h2 id="nextCardTitle">Ask if they want to compare notes with Sarah.</h2>
-              <p id="nextCardBody">
-                Use the two quotes on screen. Do not pitch yet; just ask whether the comparison would help.
-              </p>
-              <div class="next-actions">
-                <button type="button">Save this ask</button>
-                <button type="button" class="secondary-action" id="exportProof">Export proof</button>
+              <div class="graph-wrap">
+                <div class="graph-caption">
+                  <span>Session map</span>
+                  <span>3 prior notes</span>
+                </div>
+                <svg viewBox="0 0 100 100" role="img" aria-label="Opportunity graph" id="graphSvg">
+                  <line class="edge bridge-edge" x1="18" y1="28" x2="78" y2="74"></line>
+                  <line class="edge soft-edge" x1="72" y1="24" x2="78" y2="74"></line>
+                  <line class="edge soft-edge" x1="30" y1="76" x2="78" y2="74"></line>
+                  <g class="node seed-node sarah-node" transform="translate(18 28)">
+                    <circle r="5.4"></circle>
+                    <text x="7" y="1.5">Sarah</text>
+                  </g>
+                  <g class="node seed-node" transform="translate(72 24)">
+                    <circle r="4.6"></circle>
+                    <text x="-27" y="1.5">Marc</text>
+                  </g>
+                  <g class="node seed-node" transform="translate(30 76)">
+                    <circle r="4.6"></circle>
+                    <text x="7" y="1.5">Lina</text>
+                  </g>
+                  <g class="node today-node" transform="translate(78 74)">
+                    <circle r="6.2"></circle>
+                    <text x="-34" y="10">Today</text>
+                  </g>
+                </svg>
+              </div>
+
+              <div class="memory-card" id="memoryCard">
+                <div class="memory-card-heading">
+                  <p class="eyebrow">What we know</p>
+                </div>
+                <dl>
+                  <div>
+                    <dt>What they said</dt>
+                    <dd id="needText">Waiting for a quote.</dd>
+                  </div>
+                  <div>
+                    <dt>Who seems closest to it</dt>
+                    <dd id="ownerText">Not named yet.</dd>
+                  </div>
+                  <div>
+                    <dt>When it matters</dt>
+                    <dd id="timingText">Not named yet.</dd>
+                  </div>
+                  <div>
+                    <dt>Still unknown</dt>
+                    <dd id="unknownText">Who would try this first.</dd>
+                  </div>
+                  <div class="memory-note-row">
+                    <dt>Possible next note</dt>
+                    <dd id="noteText">No note yet.</dd>
+                  </div>
+                </dl>
+              </div>
+
+              <div class="action-queue is-hidden" id="actionQueue" aria-label="After-session actions">
+                <p class="eyebrow">After this conversation</p>
+                <div class="queued-actions" id="queuedActions"></div>
               </div>
             </div>
           </aside>

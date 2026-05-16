@@ -12,8 +12,8 @@ const fallbackSeed = {
   ],
   today: {
     id: "session_today",
-    person: "Today's speaker",
-    company: "AI event team",
+    person: "Camille",
+    company: "Founder programs",
   },
 };
 
@@ -21,44 +21,106 @@ const fallbackTimeline = {
   transcript: [
     {
       id: "t1",
-      speaker: "You",
-      text: "Tell me what usually happens after an event like this.",
-      at: 4600,
+      speaker: "Heard",
+      text: "Hi, I’m Gogo. I’m building RoomPilot today: it helps me turn live conversations into the next useful move.",
+      at: 3200,
     },
     {
       id: "t2",
-      speaker: "Today's speaker",
-      text: "Honestly, our event leads are hard to follow up consistently.",
-      at: 7600,
-      hero: true,
+      speaker: "Heard",
+      text: "I’m Camille. Nice to meet you. I work with founder programs around events, so I’ve seen this kind of problem a lot.",
+      at: 5400,
     },
     {
       id: "t3",
-      speaker: "Today's speaker",
-      text: "We meet useful people, but two weeks later nobody remembers who needed what.",
-      at: 9800,
+      speaker: "Gogo",
+      text: "Nice. How has the hackathon been for you so far? It’s a pretty intense room.",
+      at: 7800,
     },
     {
       id: "t4",
-      speaker: "You",
-      text: "Who has to deal with this after the event?",
-      at: 17600,
+      speaker: "Camille",
+      text: "Yeah, intense but good. I’ve had too much coffee already, but the projects are strong.",
+      at: 10200,
     },
     {
       id: "t5",
-      speaker: "Today's speaker",
-      text: "Head of Growth owns it. They want something before the Q3 event push.",
-      at: 21800,
+      speaker: "Gogo",
+      text: "I built this RoomPilot demo today, but I’m honestly not sure what the next step is after the hackathon. I don’t want it to just become another weekend project.",
+      at: 13200,
+    },
+    {
+      id: "t6",
+      speaker: "Camille",
+      text: "Yeah, that happens a lot. You get a demo working, everyone says it’s cool, and then Monday comes and nobody knows who to talk to.",
+      at: 16200,
+      hero: true,
+    },
+    {
+      id: "t7",
+      speaker: "Camille",
+      text: "The real risk is that the demo dies after the weekend.",
+      at: 18600,
+    },
+    {
+      id: "t8",
+      speaker: "Gogo",
+      text: "That is exactly what I’m worried about. Who do you think would actually care enough to try something like this next week?",
+      at: 24400,
+    },
+    {
+      id: "t9",
+      speaker: "Camille",
+      text: "I’d talk to someone at Hexa. They see a lot of founder meetings and event follow-up problems. There’s probably a team or partner there who would understand this immediately.",
+      at: 28600,
       evidence: true,
+    },
+    {
+      id: "t10",
+      speaker: "Gogo",
+      text: "Okay, that helps. Who at Hexa would be the right first person to talk to?",
+      at: 34800,
+    },
+    {
+      id: "t11",
+      speaker: "Camille",
+      text: "Maybe Nick. I don’t know if he owns this exactly, but he’d know who does. I can send you his email, or you can probably find him on LinkedIn.",
+      at: 38600,
+      evidence: true,
+    },
+    {
+      id: "t12",
+      speaker: "Gogo",
+      text: "Amazing. I’ll keep it light. What should I ask him without sounding like I’m pitching too hard?",
+      at: 44400,
+    },
+    {
+      id: "t13",
+      speaker: "Camille",
+      text: "Just say you tested it live at Tech Europe and want to know whether this helps founders avoid losing useful conversations after events.",
+      at: 48200,
+      evidence: true,
+    },
+    {
+      id: "t14",
+      speaker: "Gogo",
+      text: "That’s perfect. Thanks, Camille. Good luck with the rest of the demos.",
+      at: 52200,
+    },
+    {
+      id: "t15",
+      speaker: "Camille",
+      text: "You too. I’ll send Nick’s contact later if I find the right one.",
+      at: 54800,
     },
   ],
   events: [
     { type: "showSession", at: 2800 },
-    { type: "beat1", at: 10800 },
-    { type: "askQuestion", at: 16400 },
-    { type: "escalateMemory", at: 24200 },
-    { type: "beat2", at: 31000 },
-    { type: "showFinalMemory", at: 38600 },
+    { type: "beat1", at: 19800 },
+    { type: "askQuestion", at: 23200 },
+    { type: "escalateMemory", at: 31000 },
+    { type: "beat2", at: 40800 },
+    { type: "showFinalMemory", at: 50000 },
   ],
 };
 
@@ -93,6 +155,8 @@ let plannerTimer = null;
 let plannerRequestId = 0;
 let lastPlannedTranscript = "";
 let hasPlannerSuggestion = false;
+let rightActionCards = [];
+let rightActionCardId = 0;
 
 const fallbackActivationDelayMs = 3800;
 const fallbackStaleTranscriptMs = 2800;
@@ -130,66 +194,65 @@ const productStages = {
     userGoal: "Find useful follow-up after Tech Europe.",
     actionState: "one safe move",
     actionReason:
-      "Ask one quiet question now. Save and draft later, but do not open another tool during the conversation.",
+      "Turn the shared hackathon fear into one useful question.",
     selectedAction: "Ask",
     actions: ["Ask", "Save", "Compare", "Draft later", "Find public context"],
     queue: [
       {
-        title: "Save this moment",
-        detail: "Keep the exact quote with the session.",
-        proof: "Our event leads are hard to follow up consistently.",
+        title: "Ask who would try it next week.",
+        person: "Camille",
+        detail: "Find the person who would care before the demo becomes a weekend artifact.",
+        proof: "The real risk is that the demo dies after the weekend.",
       },
     ],
   },
   updated: {
     plannerState: "set before listening",
     userGoal: "Find useful follow-up after Tech Europe.",
-    actionState: "prepare later",
-    actionReason:
-      "There is enough proof to prepare a follow-up, but not enough to send one without review.",
-    selectedAction: "Draft later",
+    actionState: "first path",
+    actionReason: "They pointed to Hexa. Ask for the first person before jumping to email.",
+    selectedAction: "Ask",
     actions: ["Ask", "Save", "Draft later", "Find public context", "Reminder"],
     queue: [
       {
-        title: "Draft a short email",
-        detail: "Use their quote and the Q3 timing. Do not send it automatically.",
-        proof: "Head of Growth owns it. They want something before the Q3 event push.",
+        title: "Ask who at Hexa to start with.",
+        person: "Hexa",
+        detail: "Get the name first. Email or LinkedIn can wait until after the conversation.",
+        proof: "I’d talk to someone at Hexa.",
       },
       {
-        title: "Find public context",
-        detail: "Look up their company and role after the session.",
-        proof: "Head of Growth owns it.",
+        title: "Save Hexa as the first path.",
+        person: "Hexa",
+        detail: "Keep the reason attached: they see founder meetings and event follow-up problems.",
+        proof: "They see a lot of founder meetings and event follow-up problems.",
       },
     ],
   },
   bridge: {
     plannerState: "set before listening",
     userGoal: "Find useful follow-up after Tech Europe.",
-    actionState: "best next move",
-    actionReason:
-      "Ask if a comparison would help. Queue the email and public lookup for after the conversation.",
-    selectedAction: "Compare",
-    actions: ["Compare", "Ask", "Draft later", "Find public context", "Reminder"],
+    actionState: "contact path",
+    actionReason: "Nick is a plausible path, but the speaker has not confirmed he owns this.",
+    selectedAction: "Draft later",
+    actions: ["Ask", "Save", "Draft later", "Find public context", "Reminder"],
     queue: [
       {
-        title: "Ask about the Sarah comparison",
-        detail: "Use the two quotes, not a cold intro.",
-        proof: "Sarah described the same follow-up problem yesterday.",
+        title: "Save Nick as the next follow-up.",
+        person: "Nick",
+        detail: "Ask for the best contact route, then draft a short note after the conversation.",
+        proof: "Maybe Nick. I don’t know if he owns this exactly, but he’d know who does.",
       },
       {
-        title: "Draft follow-up email",
-        detail: "Prepare a note that references the exact quote. Keep it unsent.",
-        proof: "Our event leads are hard to follow up consistently.",
+        title: "Find Nick after the session.",
+        person: "Nick",
+        detail: "Use email if they send it, otherwise search LinkedIn after the conversation.",
+        proof: "I can send you his email, or you can probably find him on LinkedIn.",
       },
       {
-        title: "Find public profile",
-        detail: "After the session, look up the company and role before writing.",
-        proof: "Head of Growth owns it.",
-      },
-      {
-        title: "Create reminder",
-        detail: "Follow up before their Q3 push.",
-        proof: "They want something before the Q3 event push.",
+        title: "Draft a soft follow-up note to Nick.",
+        person: "Nick",
+        detail: "Ask for feedback, not a sale.",
+        proof: "Say you tested it live at Tech Europe.",
       },
     ],
   },
@@ -217,6 +280,7 @@ const els = {
   actionReasonText: document.querySelector("#actionReasonText"),
   actionQueue: document.querySelector("#actionQueue"),
   queuedActions: document.querySelector("#queuedActions"),
+  rightActionCards: document.querySelector("#rightActionCards"),
   nextCard: document.querySelector("#nextCard"),
   nextCardTitle: document.querySelector("#nextCardTitle"),
   nextCardBody: document.querySelector("#nextCardBody"),
@@ -351,17 +415,20 @@ function resetDemo() {
   setHidden(els.actionPalette, true);
   setHidden(els.actionQueue, true);
   setHidden(els.nextCard, true);
-  els.nextCardTitle.textContent = "Ask if they want to compare notes with Sarah.";
+  els.nextCardTitle.textContent = "Ask who at Hexa to start with.";
   els.nextCardBody.textContent =
-    "Use the two quotes on screen. Do not pitch yet; just ask whether the comparison would help.";
+    "Get the name first. Email or LinkedIn can wait until after the conversation.";
   setSessionActive(false);
   els.graphWrap.classList.remove("is-live", "is-bridge");
   liveTranscriptLines = [];
   liveDraftPlannerText = "";
   liveDraftPlannerLineActive = false;
+  rightActionCards = [];
+  rightActionCardId = 0;
   plannerRequestId += 1;
   lastPlannedTranscript = "";
   hasPlannerSuggestion = false;
+  renderRightActionCards();
   renderProductStage("waiting");
   updateMemory({
     state: "waiting",
@@ -529,6 +596,139 @@ function renderProductStage(stageName) {
 
   setHidden(els.actionPalette, !stage.selectedAction);
   setHidden(els.actionQueue, stage.queue.length === 0);
+  addStageActionCard(stageName, stage);
+}
+
+function addStageActionCard(stageName, stage) {
+  if (!stage.selectedAction || stageName === "waiting" || stageName === "listening") {
+    if (!rightActionCards.length) renderRightActionCards();
+    return;
+  }
+
+  const primaryAction = stage.queue[0] || {};
+  const proof = primaryAction.proof || "";
+  const title =
+    primaryAction.title ||
+    (stage.selectedAction === "Compare"
+      ? "Ask if comparing notes would help."
+      : stage.actionReason || "Save this next move.");
+
+  addRightActionCard({
+    type: stage.selectedAction,
+    person: primaryAction.person || inferCardPerson(primaryAction),
+    title,
+    body: primaryAction.detail || stage.actionReason || "",
+    proof,
+    reason: stage.actionReason || "",
+    queued: stage.queue.slice(1),
+  });
+}
+
+function addRightActionCard(card) {
+  const title = cleanCardText(card.title);
+
+  if (!title) return;
+
+  const normalized = {
+    id: rightActionCardId + 1,
+    type: cleanCardText(card.type || "Next"),
+    person: cleanCardText(card.person || inferCardPerson(card)),
+    title,
+    body: cleanCardText(card.body),
+    proof: cleanCardText(card.proof),
+    reason: cleanCardText(card.reason),
+    queued: Array.isArray(card.queued) ? card.queued.slice(0, 4) : [],
+  };
+  const key = [normalized.type, normalized.person, normalized.title, normalized.proof].join("|");
+  const latest = rightActionCards[rightActionCards.length - 1];
+
+  if (latest?.key === key) {
+    rightActionCards[rightActionCards.length - 1] = {
+      ...latest,
+      ...normalized,
+      key,
+    };
+  } else {
+    rightActionCardId += 1;
+    rightActionCards.push({
+      ...normalized,
+      id: rightActionCardId,
+      key,
+    });
+    rightActionCards = rightActionCards.slice(-5);
+  }
+
+  renderRightActionCards();
+}
+
+function renderRightActionCards() {
+  if (!els.rightActionCards) return;
+
+  if (!rightActionCards.length) {
+    els.rightActionCards.innerHTML = `
+      <article class="right-action-card is-empty">
+        <h2>Waiting for a useful next move.</h2>
+        <p>Cards appear here only when RoomPilot has a quote-backed action.</p>
+      </article>
+    `;
+    return;
+  }
+
+  const latestIndex = rightActionCards.length - 1;
+
+  els.rightActionCards.innerHTML = rightActionCards
+    .map((card, index) => {
+      const open = index === latestIndex ? " open" : "";
+      const collapsed = index === latestIndex ? "" : " is-collapsed";
+      const queued = card.queued
+        .map(
+          (item) => `
+            <li>
+              <strong>${escapeHtml(item.title)}</strong>
+              <span>${escapeHtml(item.detail)}</span>
+            </li>
+          `
+        )
+        .join("");
+
+      return `
+        <details class="right-action-card${collapsed}"${open}>
+          <summary>
+            <span class="action-type">${escapeHtml(card.type)}</span>
+            ${card.person ? `<span class="person-tag">${escapeHtml(card.person)}</span>` : ""}
+            <strong>${escapeHtml(card.title)}</strong>
+          </summary>
+          <div class="right-action-body">
+            ${card.body ? `<p>${escapeHtml(card.body)}</p>` : ""}
+            ${card.reason ? `<p class="action-card-reason">${escapeHtml(card.reason)}</p>` : ""}
+            ${
+              card.proof
+                ? `<div class="action-card-proof"><span>Proof</span><q>${escapeHtml(card.proof)}</q></div>`
+                : ""
+            }
+            ${queued ? `<ul class="action-card-queue">${queued}</ul>` : ""}
+          </div>
+        </details>
+      `;
+    })
+    .join("");
+}
+
+function cleanCardText(value) {
+  return String(value || "").replace(/\s+/g, " ").trim();
+}
+
+function inferCardPerson(card) {
+  const text = cleanCardText(
+    [card.title, card.body, card.proof, card.reason].filter(Boolean).join(" ")
+  );
+
+  if (/\bnick\b/i.test(text)) return "Nick";
+  if (/\bhexa\b/i.test(text)) return "Hexa";
+  if (/\bcamille\b/i.test(text)) return "Camille";
+  if (/\bgogo\b/i.test(text)) return "Gogo";
+
+  return "";
 }
 
 function queuePlanner() {
@@ -627,6 +827,20 @@ function renderPlannerPlan(plan) {
   els.nextCardTitle.textContent = plan.live_cue || "Keep this moment for follow-up.";
   els.nextCardBody.textContent =
     plan.action_reason || "Use the evidence on screen. Prepare external actions after the session.";
+  addRightActionCard({
+    type: getSelectedActionLabel(plan),
+    person: inferCardPerson({
+      title: plan.live_cue,
+      body: plan.action_reason,
+      proof: plan.evidence_quote,
+      reason: plan.not_inferred,
+    }),
+    title: plan.live_cue || "Keep this moment for follow-up.",
+    body: plan.action_reason || "Use the evidence on screen. Prepare external actions after the session.",
+    proof: plan.evidence_quote || "",
+    reason: plan.not_inferred || "",
+    queued: plan.after_session_actions || [],
+  });
   updateMemory({
     state: plan.recommended_action_type === "none" ? "listening" : "planned",
     need: plan.memory_update?.what_they_said || "A useful quote appeared.",
@@ -635,6 +849,23 @@ function renderPlannerPlan(plan) {
     unknown: plan.memory_update?.still_unknown || plan.not_inferred || "What to do next.",
     note: plan.action_reason || "A quote-backed move is ready.",
   });
+}
+
+function getSelectedActionLabel(plan) {
+  const selected = (plan.actions || []).find((action) => action.selected);
+
+  if (selected?.label) return selected.label;
+
+  const labels = {
+    ask: "Ask",
+    save: "Save",
+    compare: "Compare",
+    draft_later: "Draft later",
+    find_public_context: "Find public context",
+    reminder: "Reminder",
+  };
+
+  return labels[plan.recommended_action_type] || "Next";
 }
 
 function updateCueFromPlan(plan) {
@@ -652,29 +883,22 @@ function updateCueFromPlan(plan) {
 }
 
 function renderBridgeCueFromPlan(plan) {
-  const prior = seed.sessions.find((session) =>
-    /follow-up|follow up|event/i.test(session.quote || "")
-  );
   const currentQuote = findCurrentBridgeQuote(plan);
   const quoteBlocks = els.beat2Cue.querySelectorAll(".quote-block");
   const cueText = els.beat2Cue.querySelector(".cue-block h2");
   const notClaiming = els.beat2Cue.querySelector(".not-claiming");
   const confidence = els.beat2Cue.querySelector(".confidence");
 
-  quoteBlocks[0].querySelector(".eyebrow").textContent = `${prior?.when || "Before"} / ${
-    prior?.person || "Someone"
-  }, ${prior?.company || "another session"}`;
+  quoteBlocks[0].querySelector(".eyebrow").textContent = "Earlier / Camille";
   quoteBlocks[0].querySelector("blockquote").textContent = quoteWithMarks(
-    prior?.quote || "We're evaluating tools for event follow-up this quarter."
+    "The real risk is that the demo dies after the weekend."
   );
-  quoteBlocks[1].querySelector(".eyebrow").textContent = "Right now / Today's speaker";
+  quoteBlocks[1].querySelector(".eyebrow").textContent = "Right now / Camille";
   quoteBlocks[1].querySelector("blockquote").textContent = quoteWithMarks(currentQuote);
 
-  cueText.textContent = `${
-    prior?.person || "Someone"
-  } brought up the same follow-up problem. Ask if comparing notes would help.`;
-  notClaiming.textContent =
-    "This only links the two quotes. It does not assume they know each other.";
+  cueText.textContent =
+    "Nick may know the path. Ask for the best contact route before drafting anything.";
+  notClaiming.textContent = "Not assuming Nick owns this yet.";
   confidence.textContent = `Confidence: ${plan.confidence || "medium"}`;
   confidence.classList.remove("low", "medium", "high");
   confidence.classList.add(plan.confidence || "medium");
@@ -686,10 +910,14 @@ function renderBridgeCueFromPlan(plan) {
 
 function findCurrentBridgeQuote(plan) {
   const current = liveTranscriptLines.find((line) =>
-    /follow-up|follow up|event leads|leads/i.test(line.text || "")
+    /nick|email|linkedin|hexa|contact|owns this/i.test(line.text || "")
   );
 
-  return current?.text || plan.evidence_quote || "Our event leads are hard to follow up consistently.";
+  return (
+    current?.text ||
+    plan.evidence_quote ||
+    "Maybe Nick. I don’t know if he owns this exactly, but he’d know who does."
+  );
 }
 
 function renderActionPalette(plan) {
@@ -749,11 +977,11 @@ function showBeat1() {
   renderProductStage("firstQuote");
   updateMemory({
     state: "first quote",
-    need: "Event leads are hard to follow up consistently.",
+    need: "The demo might die after the weekend.",
     owner: "Not named yet.",
     timing: "Not named yet.",
-    unknown: "Who has to deal with this after the event.",
-    note: "Wait for the next answer before claiming more.",
+    unknown: "Who would care enough to try it next week.",
+    note: "Ask who would actually care before asking for contact details.",
   });
 }
 
@@ -761,11 +989,11 @@ function showAskQuestion() {
   renderProductStage("firstQuote");
   updateMemory({
     state: "question asked",
-    need: "Event leads are hard to follow up consistently.",
+    need: "The demo might die after the weekend.",
     owner: "Not named yet.",
     timing: "Not named yet.",
-    unknown: "Who has to deal with this after the event.",
-    note: "Asking the quiet question now.",
+    unknown: "Who would care enough to try it next week.",
+    note: "Asking who would care enough to try it.",
   });
 }
 
@@ -774,11 +1002,11 @@ function escalateMemory() {
   renderProductStage("updated");
   updateMemory({
     state: "updated",
-    need: "Event leads are hard to follow up consistently.",
-    owner: "Head of Growth",
-    timing: "Before Q3",
-    unknown: "What they already tried last time.",
-    note: "The card changed only after they named a person and timing.",
+    need: "Hexa may be the first path.",
+    owner: "Someone at Hexa",
+    timing: "Next week",
+    unknown: "Who at Hexa to start with.",
+    note: "The card changed only after Hexa was named.",
   });
 }
 
@@ -788,34 +1016,44 @@ function showBeat2() {
   setHidden(els.evidenceCapture, true);
   setHidden(els.beat2Cue, false);
   setHidden(els.nextCard, false);
-  els.nextCardTitle.textContent = "Ask if comparing notes with Sarah would help.";
+  els.nextCardTitle.textContent = "Save Nick as the next follow-up.";
   els.nextCardBody.textContent =
-    "Use the two quotes on screen. Queue email and profile work for after the conversation.";
+    "Ask for the best contact route, then draft a short note after the conversation.";
   els.graphWrap.classList.add("is-bridge");
   renderProductStage("bridge");
   updateMemory({
-    state: "two quotes",
-    need: "Two people described the same follow-up problem.",
-    owner: "Head of Growth for today's speaker.",
-    timing: "Before Q3 for today's speaker.",
-    unknown: "Whether they want to compare notes.",
-    note: "Sarah mentioned the same problem yesterday.",
+    state: "contact path",
+    need: "Hexa may be the first path.",
+    owner: "Nick may know who owns this.",
+    timing: "After Tech Europe",
+    unknown: "Whether Nick is the right person.",
+    note: "Email or LinkedIn can wait until after the conversation.",
   });
 }
 
 function showFinalMemory() {
   setHidden(els.nextCard, false);
-  els.nextCardTitle.textContent = "Leave with a queue, not just a question.";
+  els.nextCardTitle.textContent = "Draft a soft follow-up note to Nick.";
   els.nextCardBody.textContent =
-    "Keep the live moment light. Prepare drafts, profile lookup, and reminders after the session.";
+    "Say you tested it live at Tech Europe and ask whether it helps founders keep useful conversations from getting lost.";
   renderProductStage("bridge");
+  addRightActionCard({
+    type: "Draft later",
+    person: "Nick",
+    title: "Draft a soft follow-up note to Nick.",
+    body: "Say you tested it live at Tech Europe and ask whether it helps founders keep useful conversations from getting lost.",
+    proof:
+      "Just say you tested it live at Tech Europe and want to know whether this helps founders avoid losing useful conversations after events.",
+    reason: "Not assuming Nick owns this yet.",
+    queued: [],
+  });
   updateMemory({
     state: "ready",
-    need: "Event leads are hard to follow up consistently.",
-    owner: "Head of Growth",
-    timing: "Before Q3",
-    unknown: "What they already tried last time.",
-    note: "Sarah mentioned the same problem yesterday. Ask if they want to compare notes.",
+    need: "Keep the demo from becoming a weekend project.",
+    owner: "Nick may know the right Hexa path.",
+    timing: "After Tech Europe",
+    unknown: "Whether Nick is the owner or the bridge.",
+    note: "Draft a soft note after the conversation.",
   });
 }
 
@@ -844,33 +1082,39 @@ async function buildProofPayload() {
     },
     evidence: [
       {
-        id: "evidence_event_followup",
-        speaker: "Today's speaker",
-        quote: "Our event leads are hard to follow up consistently.",
+        id: "evidence_weekend_risk",
+        speaker: "Camille",
+        quote: "The real risk is that the demo dies after the weekend.",
       },
       {
-        id: "evidence_q3_owner",
-        speaker: "Today's speaker",
-        quote: "Head of Growth owns it. They want something before the Q3 event push.",
+        id: "evidence_hexa_path",
+        speaker: "Camille",
+        quote: "I’d talk to someone at Hexa.",
       },
       {
-        id: "evidence_sarah_prior",
-        speaker: "Sarah, Station F",
-        quote: "We're evaluating tools for event follow-up this quarter.",
+        id: "evidence_nick_contact",
+        speaker: "Camille",
+        quote: "Maybe Nick. I don’t know if he owns this exactly, but he’d know who does.",
+      },
+      {
+        id: "evidence_soft_note",
+        speaker: "Camille",
+        quote:
+          "Say you tested it live at Tech Europe and want to know whether this helps founders avoid losing useful conversations after events.",
       },
     ],
     visible_cues: [
       {
-        cue: "They described a follow-up problem, but not who feels it most. Ask who has to deal with this after the event.",
-        not_inferred: "They have not named who decides yet.",
+        cue: "They named the real risk. Ask who would care enough to try this next week.",
+        not_inferred: "Not assuming anyone has agreed to help yet.",
         confidence: "high",
-        evidence_ids: ["evidence_event_followup"],
+        evidence_ids: ["evidence_weekend_risk"],
       },
       {
-        cue: "Sarah described the same follow-up problem yesterday. Worth asking if they want to compare notes.",
-        not_inferred: "This only links the two quotes. It does not assume they know each other.",
+        cue: "Nick may know the path. Ask for the best contact route before drafting anything.",
+        not_inferred: "Not assuming Nick owns this yet.",
         confidence: "medium",
-        evidence_ids: ["evidence_event_followup", "evidence_sarah_prior"],
+        evidence_ids: ["evidence_nick_contact"],
       },
     ],
     memory: {
@@ -878,7 +1122,7 @@ async function buildProofPayload() {
       who_seems_closest_to_it: els.ownerText.textContent,
       when_it_matters: els.timingText.textContent,
       still_unknown: els.unknownText.textContent,
-      next_thing_to_do: "Ask if they want to compare notes with Sarah.",
+      next_thing_to_do: "Draft a soft follow-up note to Nick.",
     },
     pioneer_proof: pioneerProof,
   };
@@ -923,11 +1167,12 @@ function startDemo() {
     timers.push(
       window.setTimeout(() => {
         addTranscript(line);
-        if (line.speaker !== "You") {
-          addPlannerLine(line);
-        }
       }, line.at)
     );
+  });
+
+  (timeline.events || []).forEach((event) => {
+    schedule(event.type, event.at);
   });
 }
 

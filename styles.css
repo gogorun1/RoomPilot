@@ -287,7 +287,207 @@ main {
 }
 
 .memory-panel {
-  grid-template-rows: auto minmax(160px, 0.56fr) minmax(0, 0.8fr) auto auto auto;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  background: #fbfaf7;
+  overflow: auto;
+}
+
+.memory-panel > .panel-heading {
+  background: var(--white);
+}
+
+.action-panel {
+  display: grid;
+  overflow: hidden;
+}
+
+#memoryState,
+#actionPaletteState {
+  min-height: 26px;
+  display: inline-flex;
+  align-items: center;
+  padding: 0 10px;
+  border-radius: 999px;
+  background: var(--surface-2);
+  color: var(--ink);
+  font-size: 12px;
+  font-weight: 760;
+}
+
+.action-card-stack {
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  overflow: auto;
+  padding: 14px;
+}
+
+.right-action-card {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--white);
+  box-shadow: var(--shadow-soft);
+}
+
+.right-action-card[open] {
+  border-color: var(--line-strong);
+  box-shadow: var(--shadow-card);
+}
+
+.right-action-card.is-empty {
+  display: grid;
+  gap: 8px;
+  padding: 18px;
+  box-shadow: none;
+}
+
+.right-action-card.is-empty h2 {
+  margin-bottom: 0;
+  font-size: 20px;
+  line-height: 1.16;
+}
+
+.right-action-card.is-empty p {
+  margin-bottom: 0;
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.4;
+}
+
+.right-action-card summary {
+  min-height: 58px;
+  display: grid;
+  grid-template-columns: auto auto minmax(0, 1fr);
+  align-items: center;
+  gap: 8px;
+  padding: 12px 14px;
+  cursor: pointer;
+  list-style: none;
+}
+
+.right-action-card summary::-webkit-details-marker {
+  display: none;
+}
+
+.right-action-card summary span {
+  min-height: 28px;
+  display: inline-flex;
+  align-items: center;
+  padding: 0 10px;
+  border-radius: 999px;
+  background: var(--ink);
+  color: var(--white);
+  font-size: 12px;
+  font-weight: 780;
+}
+
+.right-action-card summary .person-tag {
+  background: var(--amber-soft);
+  color: #5f4211;
+}
+
+.right-action-card.is-collapsed summary .action-type {
+  background: var(--surface-2);
+  color: var(--muted);
+}
+
+.right-action-card.is-collapsed summary .person-tag {
+  background: #f6f5f2;
+  color: var(--muted);
+}
+
+.right-action-card summary strong {
+  color: var(--ink);
+  font-size: 15px;
+  font-weight: 680;
+  line-height: 1.24;
+}
+
+.right-action-body {
+  display: grid;
+  gap: 10px;
+  padding: 0 14px 14px;
+}
+
+.right-action-body p {
+  margin: 0;
+  color: #22211f;
+  font-size: 14px;
+  line-height: 1.38;
+}
+
+.right-action-body .action-card-reason {
+  color: var(--muted);
+}
+
+.action-card-proof {
+  display: grid;
+  gap: 6px;
+  padding: 10px;
+  border-radius: 8px;
+  background: #f6f5f2;
+}
+
+.action-card-proof span {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 760;
+  text-transform: uppercase;
+}
+
+.action-card-proof q {
+  color: var(--ink);
+  font-size: 14px;
+  font-weight: 560;
+  line-height: 1.35;
+  quotes: none;
+}
+
+.action-card-queue {
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 7px;
+  list-style: none;
+}
+
+.action-card-queue li {
+  display: grid;
+  gap: 3px;
+  padding: 9px 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+
+.action-card-queue strong {
+  color: var(--ink);
+  font-size: 13px;
+}
+
+.action-card-queue span {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.right-panel-footer {
+  padding: 0 14px 14px;
+}
+
+.right-panel-footer button {
+  width: 100%;
+  min-height: 38px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--white);
+  color: var(--ink);
+  font-size: 13px;
+  font-weight: 730;
+}
+
+.right-state-store {
+  display: none !important;
 }
 
 .panel-heading {
@@ -593,14 +793,31 @@ blockquote {
 }
 
 .graph-wrap {
-  min-height: 172px;
-  padding: 12px 12px 0;
+  min-height: 128px;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: 8px;
+  margin: 12px 14px 0;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--white);
+}
+
+.graph-caption {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 760;
 }
 
 svg {
   width: 100%;
   height: 100%;
-  min-height: 168px;
+  min-height: 92px;
 }
 
 .edge {
@@ -661,21 +878,34 @@ svg {
 }
 
 .memory-card {
-  overflow: auto;
-  padding: 0 16px 12px;
+  overflow: visible;
+  padding: 12px 14px 0;
+}
+
+.memory-card-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 18px;
+  margin-bottom: 8px;
+}
+
+.memory-card-heading .eyebrow {
+  margin-bottom: 0;
 }
 
 dl {
   margin: 0;
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 8px;
+  gap: 7px;
 }
 
 dl div {
   display: grid;
   gap: 5px;
-  padding: 11px 12px;
+  min-height: 62px;
+  padding: 9px 10px;
   border: 1px solid var(--line);
   border-radius: 8px;
   background: var(--white);
@@ -684,6 +914,11 @@ dl div {
 dl div:first-child,
 dl div:nth-child(4) {
   grid-column: 1 / -1;
+}
+
+dl div:first-child {
+  border-color: var(--line-strong);
+  background: #f6f5f2;
 }
 
 .memory-note-row {
@@ -699,13 +934,13 @@ dt {
 dd {
   margin: 0;
   color: #171717;
-  font-size: 15px;
+  font-size: 14px;
   line-height: 1.35;
 }
 
 .next-card {
-  margin: 0 16px 16px;
-  padding: 16px;
+  margin: 12px 14px 0;
+  padding: 14px;
   border: 1px solid var(--line-strong);
   border-radius: 8px;
   background: var(--ink);
@@ -721,21 +956,21 @@ dd {
 .next-card h2 {
   margin-bottom: 8px;
   color: var(--white);
-  font-size: 20px;
+  font-size: 18px;
   font-weight: 620;
   line-height: 1.18;
 }
 
 .next-card p:not(.eyebrow) {
-  margin-bottom: 14px;
+  margin-bottom: 12px;
   color: rgba(255, 255, 255, 0.72);
-  font-size: 15px;
+  font-size: 14px;
   line-height: 1.38;
 }
 
 .next-card button {
-  min-height: 38px;
-  padding: 0 14px;
+  min-height: 36px;
+  padding: 0 13px;
   background: var(--white);
   color: var(--ink);
   font-weight: 730;
@@ -755,7 +990,18 @@ dd {
 
 .action-palette,
 .action-queue {
-  margin: 0 16px 12px;
+  margin: 12px 14px 0;
+  overflow: hidden;
+}
+
+.action-palette {
+  background: var(--white);
+}
+
+.action-queue {
+  margin-bottom: 14px;
+  border: 1px solid var(--line);
+  background: var(--white);
 }
 
 .action-chip-list {

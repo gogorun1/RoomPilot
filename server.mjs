@@ -944,7 +944,7 @@ function pickContactEvidenceQuote(text) {
 }
 
 function isUserLine(line) {
-  return /^you$/i.test(cleanText(line.speaker));
+  return /^(you|gogo)$/i.test(cleanText(line.speaker));
 }
 
 function detectSupportedQuoteLanguage(text) {
