@@ -82,6 +82,7 @@ let demoSpeechVoices = null;
 let demoAudioCache = new Map();
 let demoAudioElements = [];
 let demoSpeechSequence = 0;
+let demoSpeechQueue = Promise.resolve();
 let livePeer = null;
 let liveStream = null;
 let liveDataChannel = null;
@@ -380,6 +381,7 @@ function getDemoSpeechVoices() {
 
 function stopDemoSpeech() {
   demoSpeechSequence += 1;
+  demoSpeechQueue = Promise.resolve();
   demoAudioElements.forEach((audio) => {
     audio.pause();
     audio.currentTime = 0;
@@ -454,9 +456,7 @@ async function preloadDemoSpeech() {
 }
 
 function speakBrowserDemoLine(line) {
-  if (!window.speechSynthesis || !line?.text) return;
-
-  stopCurrentDemoVoice();
+  if (!window.speechSynthesis || !line?.text) return Promise.resolve();
 
   const utterance = new SpeechSynthesisUtterance(line.text);
   const voices = getDemoSpeechVoices();
@@ -468,33 +468,46 @@ function speakBrowserDemoLine(line) {
   utterance.pitch = isCamille ? 1.18 : 0.82;
   utterance.volume = 0.95;
 
-  window.speechSynthesis.speak(utterance);
+  return new Promise((resolve) => {
+    utterance.onend = resolve;
+    utterance.onerror = resolve;
+    window.speechSynthesis.speak(utterance);
+  });
 }
 
-async function speakDemoLine(line) {
-  const speechSequence = (demoSpeechSequence += 1);
-
+async function playDemoLine(line, speechSequence) {
   try {
     const audio = await getGradiumDemoAudio(line);
 
     if (!audio || speechSequence !== demoSpeechSequence) return;
 
-    stopCurrentDemoVoice();
     audio.playbackRate = demoSpeechRate;
     demoAudioElements.push(audio);
-    audio.addEventListener(
-      "ended",
-      () => {
+
+    const finished = new Promise((resolve) => {
+      const cleanup = () => {
         demoAudioElements = demoAudioElements.filter((item) => item !== audio);
-      },
-      { once: true }
-    );
+        resolve();
+      };
+
+      audio.addEventListener("ended", cleanup, { once: true });
+      audio.addEventListener("error", cleanup, { once: true });
+      audio.addEventListener("pause", cleanup, { once: true });
+    });
+
     await audio.play();
+    await finished;
   } catch (error) {
     if (speechSequence === demoSpeechSequence) {
-      speakBrowserDemoLine(line);
+      await speakBrowserDemoLine(line);
     }
   }
+}
+
+function speakDemoLine(line) {
+  const speechSequence = demoSpeechSequence;
+  demoSpeechQueue = demoSpeechQueue.then(() => playDemoLine(line, speechSequence));
+  demoSpeechQueue.catch(() => {});
 }
 
 if (window.speechSynthesis) {
