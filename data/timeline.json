@@ -3,37 +3,37 @@
     {
       "id": "t1",
       "speaker": "Heard",
-      "text": "Hi, I’m Gogo. I’m building RoomPilot today: it helps me turn live conversations into the next useful move.",
+      "text": "Hi, I’m Gogo. RoomPilot turns live conversations into the next useful move.",
       "at": 3200
     },
     {
       "id": "t2",
       "speaker": "Heard",
-      "text": "I’m Camille. Nice to meet you. I work with founder programs around events, so I’ve seen this kind of problem a lot.",
+      "text": "I’m Camille. I work with founder programs, so I see event follow-up problems all the time.",
       "at": 5400
     },
     {
       "id": "t3",
       "speaker": "Gogo",
-      "text": "Nice. How has the hackathon been for you so far? It’s a pretty intense room.",
+      "text": "Nice. How has the hackathon been for you?",
       "at": 7800
     },
     {
       "id": "t4",
       "speaker": "Camille",
-      "text": "Yeah, intense but good. I’ve had too much coffee already, but the projects are strong.",
+      "text": "Intense, but good. The projects are strong.",
       "at": 10200
     },
     {
       "id": "t5",
       "speaker": "Gogo",
-      "text": "I built this RoomPilot demo today, but I’m honestly not sure what the next step is after the hackathon. I don’t want it to just become another weekend project.",
+      "text": "I built RoomPilot today, but I don’t want it to become another weekend project.",
       "at": 13200
     },
     {
       "id": "t6",
       "speaker": "Camille",
-      "text": "Yeah, that happens a lot. You get a demo working, everyone says it’s cool, and then Monday comes and nobody knows who to talk to.",
+      "text": "That happens a lot. The demo works, people say it’s cool, then Monday comes and nobody knows who to talk to.",
       "at": 16200,
       "hero": true
     },
@@ -46,52 +46,52 @@
     {
       "id": "t8",
       "speaker": "Gogo",
-      "text": "That is exactly what I’m worried about. Who do you think would actually care enough to try something like this next week?",
+      "text": "Exactly. Who would care enough to try this next week?",
       "at": 24400
     },
     {
       "id": "t9",
       "speaker": "Camille",
-      "text": "I’d talk to someone at Hexa. They see a lot of founder meetings and event follow-up problems. There’s probably a team or partner there who would understand this immediately.",
+      "text": "I’d talk to someone at Hexa. They see founder meetings and event follow-up problems every week.",
       "at": 28600,
       "evidence": true
     },
     {
       "id": "t10",
       "speaker": "Gogo",
-      "text": "Okay, that helps. Who at Hexa would be the right first person to talk to?",
+      "text": "Who at Hexa should I talk to first?",
       "at": 34800
     },
     {
       "id": "t11",
       "speaker": "Camille",
-      "text": "Maybe Nick. I don’t know if he owns this exactly, but he’d know who does. I can send you his email, or you can probably find him on LinkedIn.",
+      "text": "Maybe Nick. I’m not sure he owns it, but he’d know who does.",
       "at": 38600,
       "evidence": true
     },
     {
       "id": "t12",
       "speaker": "Gogo",
-      "text": "Amazing. I’ll keep it light. What should I ask him without sounding like I’m pitching too hard?",
+      "text": "Great. What should I ask without sounding too pitchy?",
       "at": 44400
     },
     {
       "id": "t13",
       "speaker": "Camille",
-      "text": "Just say you tested it live at Tech Europe and want to know whether this helps founders avoid losing useful conversations after events.",
+      "text": "Say you tested it live at Tech Europe and want to know if it helps founders avoid losing useful conversations.",
       "at": 48200,
       "evidence": true
     },
     {
       "id": "t14",
       "speaker": "Gogo",
-      "text": "That’s perfect. Thanks, Camille. Good luck with the rest of the demos.",
+      "text": "Perfect. Thanks, Camille. Good luck with the demos.",
       "at": 52200
     },
     {
       "id": "t15",
       "speaker": "Camille",
-      "text": "You too. I’ll send Nick’s contact later if I find the right one.",
+      "text": "You too. I’ll send Nick’s contact if I find it.",
       "at": 54800
     }
   ],
