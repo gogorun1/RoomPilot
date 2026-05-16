@@ -503,6 +503,7 @@ async function startLiveMic() {
   setLiveStatus("Preparing live mic", "pending");
   showSession();
   setSessionActive(true);
+  startClock();
 
   try {
     const sessionResponse = await withTimeout(
