@@ -1,0 +1,34 @@
+{
+  "provider": "pioneer",
+  "mode": "native_inference",
+  "model_id": "fastino/gliner2-base-v1",
+  "task": "extract_entities",
+  "latency_ms": 155.7903289794922,
+  "token_usage": 41,
+  "input": {
+    "quote": "Head of Growth owns it. They want something before the Q3 event push."
+  },
+  "raw_extract": {
+    "primary_need_owner": ["Head of Growth"],
+    "timing_signal": ["Q3 event push"]
+  },
+  "normalized": {
+    "primary_need_owner": "Head of Growth",
+    "timing_signal": "Q3 event push",
+    "missing_information": ["what they already tried"],
+    "not_inferred": ["whether they will buy"],
+    "confidence": 0.9
+  },
+  "visible_evidence": [
+    {
+      "speaker": "Today's speaker",
+      "quote": "Head of Growth owns it. They want something before the Q3 event push."
+    },
+    {
+      "speaker": "Sarah, Station F",
+      "quote": "We're evaluating tools for event follow-up this quarter."
+    }
+  ],
+  "next_thing_to_do": "Ask if they want to compare notes with Sarah.",
+  "stage_note": "Pioneer is used as a quote-backed structured extractor, not as the stage-critical demo path."
+}

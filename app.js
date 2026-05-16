@@ -96,6 +96,7 @@ const els = {
   timingText: document.querySelector("#timingText"),
   unknownText: document.querySelector("#unknownText"),
   noteText: document.querySelector("#noteText"),
+  exportProof: document.querySelector("#exportProof"),
   startDemo: document.querySelector("#startDemo"),
   startDemoHero: document.querySelector("#startDemoHero"),
   resetDemo: document.querySelector("#resetDemo"),
@@ -321,6 +322,86 @@ function showFinalMemory() {
   });
 }
 
+async function buildProofPayload() {
+  let pioneerProof = null;
+
+  try {
+    const response = await fetch("./data/pioneer-proof-output.json", {
+      cache: "no-store",
+    });
+
+    if (response.ok) {
+      pioneerProof = await response.json();
+    }
+  } catch (error) {
+    console.warn("Pioneer proof artifact could not be loaded.", error);
+  }
+
+  return {
+    exported_at: new Date().toISOString(),
+    product: "RoomPilot",
+    session: {
+      title: "Tech Europe Opportunity Session",
+      audio_stored: false,
+      mode: "replay_demo_with_pioneer_smoke_proof",
+    },
+    evidence: [
+      {
+        id: "evidence_event_followup",
+        speaker: "Today's speaker",
+        quote: "Our event leads are hard to follow up consistently.",
+      },
+      {
+        id: "evidence_q3_owner",
+        speaker: "Today's speaker",
+        quote: "Head of Growth owns it. They want something before the Q3 event push.",
+      },
+      {
+        id: "evidence_sarah_prior",
+        speaker: "Sarah, Station F",
+        quote: "We're evaluating tools for event follow-up this quarter.",
+      },
+    ],
+    visible_cues: [
+      {
+        cue: "They described a follow-up problem, but not who feels it most. Ask who has to deal with this after the event.",
+        not_inferred: "They have not named who decides yet.",
+        confidence: "high",
+        evidence_ids: ["evidence_event_followup"],
+      },
+      {
+        cue: "Sarah described the same follow-up problem yesterday. Worth asking if they want to compare notes.",
+        not_inferred: "This only links the two quotes. It does not assume they know each other.",
+        confidence: "medium",
+        evidence_ids: ["evidence_event_followup", "evidence_sarah_prior"],
+      },
+    ],
+    memory: {
+      what_they_said: els.needText.textContent,
+      who_seems_closest_to_it: els.ownerText.textContent,
+      when_it_matters: els.timingText.textContent,
+      still_unknown: els.unknownText.textContent,
+      next_thing_to_do: "Ask if they want to compare notes with Sarah.",
+    },
+    pioneer_proof: pioneerProof,
+  };
+}
+
+async function exportProof() {
+  const payload = await buildProofPayload();
+  const json = JSON.stringify(payload, null, 2);
+  const blob = new Blob([json], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+
+  link.href = url;
+  link.download = "roompilot-proof.json";
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+}
+
 function schedule(type, at) {
   const callbacks = {
     showSession,
@@ -372,6 +453,7 @@ function bindControls() {
   els.jumpBeat1.addEventListener("click", jumpToBeat1);
   els.jumpBeat2.addEventListener("click", jumpToBeat2);
   els.stopSession.addEventListener("click", resetDemo);
+  els.exportProof.addEventListener("click", exportProof);
 
   document.addEventListener("keydown", (event) => {
     const key = event.key.toLowerCase();

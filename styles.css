@@ -678,6 +678,18 @@ dd {
   font-weight: 730;
 }
 
+.next-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.next-card .secondary-action {
+  border: 1px solid rgba(255, 255, 255, 0.32);
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--white);
+}
+
 .stage-controls {
   width: min(1180px, calc(100vw - 48px));
   min-height: 72px;
