@@ -1,0 +1,178 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>RoomPilot Demo</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <header class="topbar">
+        <div>
+          <p class="eyebrow">RoomPilot</p>
+          <h1>Tech Europe Opportunity Session</h1>
+        </div>
+        <div class="trust-controls" aria-label="Trust controls">
+          <button class="recording-toggle is-inactive" type="button" aria-pressed="false">
+            <span class="status-dot"></span>
+            <span class="status-text">Ready when you are</span>
+          </button>
+          <span class="audio-note">Audio: not stored</span>
+          <button class="ghost-button is-hidden" type="button" id="stopSession">
+            Stop session
+          </button>
+        </div>
+      </header>
+
+      <main>
+        <section class="trust-frame" id="trustFrame" aria-label="Trust frame">
+          <div class="trust-copy">
+            <p class="eyebrow">Before listening</p>
+            <h2>Every suggestion shows its proof.</h2>
+            <p>
+              RoomPilot listens for the moment worth acting on, then shows the words behind the suggestion.
+            </p>
+          </div>
+          <div class="trust-panel" aria-label="Start demo">
+            <button class="hero-start-button" type="button" id="startDemoHero">Start demo</button>
+          </div>
+        </section>
+
+        <section class="demo-grid is-hidden" id="demoGrid" aria-label="Demo workspace">
+          <aside class="transcript-panel" aria-label="Transcript">
+            <div class="panel-heading">
+              <p class="eyebrow">Transcript</p>
+              <span id="demoClock">00:00</span>
+            </div>
+            <div class="transcript-list" id="transcriptList"></div>
+          </aside>
+
+          <section class="cue-stage" aria-label="Cue stage">
+            <div class="empty-cue" id="emptyCue">
+              <p class="eyebrow">Listening</p>
+              <h2>Waiting for a useful quote.</h2>
+              <p>Suggestions stay quiet until they can show what caused them.</p>
+            </div>
+
+            <div class="evidence-cue is-hidden" id="beat1Cue">
+              <div class="quote-block">
+                <p class="eyebrow">Quote</p>
+                <blockquote>"Our event leads are hard to follow up consistently."</blockquote>
+              </div>
+              <div class="connector-line" aria-hidden="true"></div>
+              <div class="cue-block">
+                <div class="cue-meta">
+                  <p class="eyebrow">Suggestion</p>
+                  <span class="confidence high">Confidence: high</span>
+                </div>
+                <h2>They described a follow-up problem, but not who feels it most. Ask who has to deal with this after the event.</h2>
+                <p class="not-claiming">They have not named who decides yet.</p>
+              </div>
+            </div>
+
+            <div class="evidence-cue is-hidden" id="beat2Cue">
+              <div class="quote-pair">
+                <div class="quote-block compact">
+                  <p class="eyebrow">Yesterday / Sarah, Station F</p>
+                  <blockquote>"We're evaluating tools for event follow-up this quarter."</blockquote>
+                </div>
+                <div class="quote-block compact">
+                  <p class="eyebrow">Right now / Today's speaker</p>
+                  <blockquote>"Our event leads are hard to follow up consistently."</blockquote>
+                </div>
+              </div>
+              <div class="cue-block bridge">
+                <div class="cue-meta">
+                  <p class="eyebrow">Suggestion</p>
+                  <span class="confidence medium">Confidence: medium</span>
+                </div>
+                <h2>Sarah described the same follow-up problem yesterday. Worth asking if they want to compare notes.</h2>
+                <p class="not-claiming">This only links the two quotes. It does not assume they know each other.</p>
+              </div>
+            </div>
+
+            <div class="evidence-capture is-hidden" id="evidenceCapture">
+              <p class="eyebrow">New quote</p>
+              <blockquote>"Head of Growth owns it. They want something before the Q3 event push."</blockquote>
+              <button type="button">delete this evidence</button>
+            </div>
+          </section>
+
+          <aside class="memory-panel" aria-label="Opportunity memory">
+            <div class="panel-heading">
+              <p class="eyebrow">Memory</p>
+              <span id="memoryState">waiting</span>
+            </div>
+            <div class="graph-wrap">
+              <svg viewBox="0 0 100 100" role="img" aria-label="Opportunity graph" id="graphSvg">
+                <line class="edge bridge-edge" x1="18" y1="28" x2="78" y2="74"></line>
+                <line class="edge soft-edge" x1="72" y1="24" x2="78" y2="74"></line>
+                <line class="edge soft-edge" x1="30" y1="76" x2="78" y2="74"></line>
+                <g class="node seed-node sarah-node" transform="translate(18 28)">
+                  <circle r="5.4"></circle>
+                  <text x="7" y="1.5">Sarah</text>
+                </g>
+                <g class="node seed-node" transform="translate(72 24)">
+                  <circle r="4.6"></circle>
+                  <text x="-27" y="1.5">Marc</text>
+                </g>
+                <g class="node seed-node" transform="translate(30 76)">
+                  <circle r="4.6"></circle>
+                  <text x="7" y="1.5">Lina</text>
+                </g>
+                <g class="node today-node" transform="translate(78 74)">
+                  <circle r="6.2"></circle>
+                  <text x="-34" y="10">Today</text>
+                </g>
+              </svg>
+            </div>
+
+            <div class="memory-card" id="memoryCard">
+              <dl>
+                <div>
+                  <dt>What they said</dt>
+                  <dd id="needText">Waiting for a quote.</dd>
+                </div>
+                <div>
+                  <dt>Who seems closest to it</dt>
+                  <dd id="ownerText">Not named yet.</dd>
+                </div>
+                <div>
+                  <dt>When it matters</dt>
+                  <dd id="timingText">Not named yet.</dd>
+                </div>
+                <div>
+                  <dt>Still unknown</dt>
+                  <dd id="unknownText">Who would try this first.</dd>
+                </div>
+                <div class="memory-note-row">
+                  <dt>Possible next note</dt>
+                  <dd id="noteText">No note yet.</dd>
+                </div>
+              </dl>
+            </div>
+
+            <div class="next-card is-hidden" id="nextCard" aria-label="Next thing to do">
+              <p class="eyebrow">Next thing to do</p>
+              <h2>Ask if they want to compare notes with Sarah.</h2>
+              <p>
+                Use the two quotes on screen. Do not pitch yet; just ask whether the comparison would help.
+              </p>
+              <button type="button">Save this ask</button>
+            </div>
+          </aside>
+        </section>
+      </main>
+
+      <footer class="stage-controls" aria-label="Stage controls">
+        <button type="button" id="startDemo">Start demo</button>
+        <button type="button" id="resetDemo">Reset</button>
+        <button type="button" id="jumpBeat1">First cue</button>
+        <button type="button" id="jumpBeat2">Two quotes</button>
+      </footer>
+    </div>
+
+    <script src="./app.js"></script>
+  </body>
+</html>

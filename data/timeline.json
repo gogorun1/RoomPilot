@@ -1,0 +1,62 @@
+{
+  "transcript": [
+    {
+      "id": "t1",
+      "speaker": "You",
+      "text": "Tell me what usually happens after an event like this.",
+      "at": 4600
+    },
+    {
+      "id": "t2",
+      "speaker": "Today's speaker",
+      "text": "Honestly, our event leads are hard to follow up consistently.",
+      "at": 7600,
+      "hero": true
+    },
+    {
+      "id": "t3",
+      "speaker": "Today's speaker",
+      "text": "We meet useful people, but two weeks later nobody remembers who needed what.",
+      "at": 9800
+    },
+    {
+      "id": "t4",
+      "speaker": "You",
+      "text": "Who has to deal with this after the event?",
+      "at": 17600
+    },
+    {
+      "id": "t5",
+      "speaker": "Today's speaker",
+      "text": "Head of Growth owns it. They want something before the Q3 event push.",
+      "at": 21800,
+      "evidence": true
+    }
+  ],
+  "events": [
+    {
+      "type": "showSession",
+      "at": 2800
+    },
+    {
+      "type": "beat1",
+      "at": 10800
+    },
+    {
+      "type": "askQuestion",
+      "at": 16400
+    },
+    {
+      "type": "escalateMemory",
+      "at": 24200
+    },
+    {
+      "type": "beat2",
+      "at": 31000
+    },
+    {
+      "type": "showFinalMemory",
+      "at": 38600
+    }
+  ]
+}

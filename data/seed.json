@@ -1,0 +1,46 @@
+{
+  "event": {
+    "name": "Tech Europe, Paris",
+    "venue": "Hexa",
+    "date": "2026-05-16"
+  },
+  "sessions": [
+    {
+      "id": "session_sarah_station_f",
+      "person": "Sarah",
+      "company": "Station F",
+      "when": "Yesterday",
+      "quote": "We're evaluating tools for event follow-up this quarter.",
+      "note": "Real ecosystem company; useful for Tavily enrichment tomorrow.",
+      "x": 18,
+      "y": 28
+    },
+    {
+      "id": "session_marc_hexa",
+      "person": "Marc",
+      "company": "Hexa portfolio founder",
+      "when": "Yesterday",
+      "quote": "We lose warm intros after demo days.",
+      "note": "Nearby problem, not the bridge used on stage.",
+      "x": 72,
+      "y": 24
+    },
+    {
+      "id": "session_lina_sponsor",
+      "person": "Lina",
+      "company": "Sponsor team",
+      "when": "This morning",
+      "quote": "Our team struggles to remember which founders asked for what.",
+      "note": "Shows the graph is not empty.",
+      "x": 30,
+      "y": 76
+    }
+  ],
+  "today": {
+    "id": "session_today",
+    "person": "Today's speaker",
+    "company": "AI event team",
+    "x": 78,
+    "y": 74
+  }
+}
