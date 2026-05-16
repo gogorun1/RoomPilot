@@ -345,6 +345,11 @@ main {
   background: var(--amber-soft);
 }
 
+.transcript-line.is-live-draft {
+  border-color: var(--line-strong);
+  background: var(--white);
+}
+
 .cue-stage {
   position: relative;
   display: grid;
@@ -698,6 +703,7 @@ dd {
   align-items: center;
   gap: 8px;
   padding: 12px 0 18px;
+  flex-wrap: wrap;
 }
 
 .stage-controls button {
@@ -714,6 +720,32 @@ dd {
   border-color: var(--ink);
   background: var(--ink);
   color: var(--white);
+}
+
+.live-status {
+  min-height: 36px;
+  display: inline-flex;
+  align-items: center;
+  margin-left: auto;
+  padding: 0 12px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.live-status[data-state="pending"] {
+  color: var(--amber);
+}
+
+.live-status[data-state="active"] {
+  color: var(--green);
+}
+
+.live-status[data-state="error"] {
+  color: var(--red);
 }
 
 .is-hidden {

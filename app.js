@@ -69,6 +69,10 @@ let clockTimer = null;
 let statusTimer = null;
 let statusIndex = 0;
 let demoStartedAt = null;
+let livePeer = null;
+let liveStream = null;
+let liveDataChannel = null;
+let liveDraftLine = null;
 
 const statusMessages = [
   "Thinking through your next move",
@@ -99,6 +103,8 @@ const els = {
   exportProof: document.querySelector("#exportProof"),
   startDemo: document.querySelector("#startDemo"),
   startDemoHero: document.querySelector("#startDemoHero"),
+  liveMic: document.querySelector("#liveMic"),
+  liveStatus: document.querySelector("#liveStatus"),
   resetDemo: document.querySelector("#resetDemo"),
   jumpBeat1: document.querySelector("#jumpBeat1"),
   jumpBeat2: document.querySelector("#jumpBeat2"),
@@ -182,8 +188,14 @@ function setHidden(element, hidden) {
   element.classList.toggle("is-hidden", hidden);
 }
 
+function setLiveStatus(message, state = "idle") {
+  els.liveStatus.textContent = message;
+  els.liveStatus.dataset.state = state;
+}
+
 function resetDemo() {
   clearTimers();
+  stopLiveMic();
   demoStartedAt = null;
   els.demoClock.textContent = "00:00";
   els.transcriptList.innerHTML = "";
@@ -454,6 +466,7 @@ function bindControls() {
   els.jumpBeat2.addEventListener("click", jumpToBeat2);
   els.stopSession.addEventListener("click", resetDemo);
   els.exportProof.addEventListener("click", exportProof);
+  els.liveMic.addEventListener("click", toggleLiveMic);
 
   document.addEventListener("keydown", (event) => {
     const key = event.key.toLowerCase();
@@ -463,6 +476,156 @@ function bindControls() {
     if (key === "1") jumpToBeat1();
     if (key === "2") jumpToBeat2();
   });
+}
+
+async function toggleLiveMic() {
+  if (livePeer) {
+    stopLiveMic();
+    return;
+  }
+
+  await startLiveMic();
+}
+
+async function startLiveMic() {
+  resetDemo();
+  setLiveStatus("Preparing live mic", "pending");
+  showSession();
+  setSessionActive(true);
+
+  try {
+    const sessionResponse = await fetch("/api/realtime/session", {
+      method: "POST",
+    });
+    const session = await sessionResponse.json();
+
+    if (!sessionResponse.ok) {
+      throw new Error(session.error || "Realtime session failed");
+    }
+
+    const ephemeralKey =
+      session.client_secret?.value || session.client_secret || session.value;
+
+    if (!ephemeralKey) {
+      throw new Error("Realtime session did not return a client secret");
+    }
+
+    liveStream = await navigator.mediaDevices.getUserMedia({
+      audio: {
+        echoCancellation: true,
+        noiseSuppression: true,
+      },
+    });
+
+    livePeer = new RTCPeerConnection();
+    liveStream.getTracks().forEach((track) => livePeer.addTrack(track, liveStream));
+    liveDataChannel = livePeer.createDataChannel("oai-events");
+    liveDataChannel.addEventListener("message", handleRealtimeMessage);
+
+    const offer = await livePeer.createOffer();
+    await livePeer.setLocalDescription(offer);
+
+    const realtimeUrl = new URL("https://api.openai.com/v1/realtime/calls");
+    realtimeUrl.searchParams.set("model", session.model || "gpt-realtime");
+
+    const sdpResponse = await fetch(realtimeUrl, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${ephemeralKey}`,
+        "Content-Type": "application/sdp",
+      },
+      body: offer.sdp,
+    });
+
+    if (!sdpResponse.ok) {
+      throw new Error(await sdpResponse.text());
+    }
+
+    await livePeer.setRemoteDescription({
+      type: "answer",
+      sdp: await sdpResponse.text(),
+    });
+
+    els.liveMic.textContent = "Stop live mic";
+    setLiveStatus("Live mic listening", "active");
+  } catch (error) {
+    console.error(error);
+    stopLiveMic();
+    setLiveStatus(error.message, "error");
+  }
+}
+
+function stopLiveMic() {
+  if (liveDataChannel) {
+    liveDataChannel.close();
+    liveDataChannel = null;
+  }
+
+  if (livePeer) {
+    livePeer.close();
+    livePeer = null;
+  }
+
+  if (liveStream) {
+    liveStream.getTracks().forEach((track) => track.stop());
+    liveStream = null;
+  }
+
+  liveDraftLine = null;
+  els.liveMic.textContent = "Try live mic";
+  setLiveStatus("Live mic idle");
+}
+
+function handleRealtimeMessage(message) {
+  let event;
+
+  try {
+    event = JSON.parse(message.data);
+  } catch {
+    return;
+  }
+
+  const transcript = extractTranscriptText(event);
+
+  if (!transcript) return;
+
+  if (event.type?.includes("delta")) {
+    updateLiveDraft(transcript);
+    return;
+  }
+
+  addTranscript({
+    speaker: "Live speaker",
+    text: transcript,
+  });
+  liveDraftLine = null;
+}
+
+function extractTranscriptText(event) {
+  if (typeof event.delta === "string") return event.delta;
+  if (typeof event.transcript === "string") return event.transcript;
+
+  const content = event.item?.content || event.response?.output?.[0]?.content;
+  if (!Array.isArray(content)) return "";
+
+  const transcriptPart = content.find((part) => part.transcript || part.text);
+  return transcriptPart?.transcript || transcriptPart?.text || "";
+}
+
+function updateLiveDraft(delta) {
+  if (!liveDraftLine) {
+    liveDraftLine = document.createElement("article");
+    liveDraftLine.className = "transcript-line is-live-draft";
+    liveDraftLine.innerHTML = `
+      <strong>Live speaker</strong>
+      <p></p>
+    `;
+    els.transcriptList.appendChild(liveDraftLine);
+  }
+
+  const textElement = liveDraftLine.querySelector("p");
+  textElement.textContent += delta;
+  els.transcriptList.scrollTop = els.transcriptList.scrollHeight;
 }
 
 async function init() {
