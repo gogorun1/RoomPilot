@@ -89,16 +89,14 @@ async function createRealtimeSession(response) {
   }
 
   const transcriptModel =
-    process.env.OPENAI_REALTIME_TRANSCRIBE_MODEL || "gpt-4o-mini-transcribe";
-  const language = process.env.OPENAI_TRANSCRIBE_LANGUAGE;
-
-  const transcription = {
-    model: transcriptModel,
-  };
-
-  if (language) {
-    transcription.language = language;
-  }
+    process.env.OPENAI_REALTIME_TRANSCRIBE_MODEL ||
+    process.env.OPENAI_TRANSCRIBE_MODEL ||
+    "gpt-4o-mini-transcribe";
+  const realtimeModel = process.env.OPENAI_REALTIME_MODEL || "gpt-realtime";
+  const sessionConfig = buildRealtimeTranscriptionSession({
+    realtimeModel,
+    transcriptModel,
+  });
 
   const upstream = await fetch("https://api.openai.com/v1/realtime/client_secrets", {
     method: "POST",
@@ -111,20 +109,7 @@ async function createRealtimeSession(response) {
         anchor: "created_at",
         seconds: 600,
       },
-      session: {
-        type: "transcription",
-        audio: {
-          input: {
-            transcription,
-            turn_detection: {
-              type: "server_vad",
-              threshold: 0.3,
-              prefix_padding_ms: 300,
-              silence_duration_ms: 500,
-            },
-          },
-        },
-      },
+      session: sessionConfig,
     }),
   });
 
@@ -138,11 +123,48 @@ async function createRealtimeSession(response) {
     return;
   }
 
+  console.log("Realtime transcription client secret created", {
+    realtimeModel,
+    transcriptModel,
+  });
+
   sendJson(response, 200, {
     ...payload,
+    realtime_model: realtimeModel,
     transcription_model: transcriptModel,
-    session_type: "transcription",
+    session_type: sessionConfig.type,
   });
+}
+
+function buildRealtimeTranscriptionSession({ realtimeModel, transcriptModel }) {
+  const transcription = {
+    model: transcriptModel,
+  };
+
+  if (process.env.OPENAI_TRANSCRIBE_LANGUAGE) {
+    transcription.language = process.env.OPENAI_TRANSCRIBE_LANGUAGE;
+  }
+
+  return {
+    type: "realtime",
+    model: realtimeModel,
+    instructions:
+      "Transcribe the user's speech for live captions. Do not answer the user.",
+    audio: {
+      input: {
+        transcription,
+        turn_detection: {
+          type: "server_vad",
+          threshold: 0.5,
+          prefix_padding_ms: 300,
+          silence_duration_ms: 500,
+        },
+      },
+      output: {
+        voice: process.env.OPENAI_REALTIME_VOICE || "marin",
+      },
+    },
+  };
 }
 
 async function transcribeAudioChunk(request, response) {
@@ -244,6 +266,7 @@ async function planActions(request, response) {
       "gpt-4.1-mini";
     const upstream = await fetch("https://api.openai.com/v1/responses", {
       method: "POST",
+      signal: AbortSignal.timeout(7000),
       headers: {
         Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
         "Content-Type": "application/json",
@@ -442,20 +465,23 @@ function normalizePlan(plan, fallbackPlan) {
     };
   }
 
+  const recommendedActionType = fallbackPlan.should_act
+    ? fallbackPlan.recommended_action_type
+    : plan.recommended_action_type || "ask";
+
   return {
     should_act: Boolean(plan.should_act),
     evidence_quote: cleanText(plan.evidence_quote),
     live_cue: ensureConcreteCue(plan, fallbackPlan),
-    not_inferred:
-      cleanText(plan.not_inferred) || "Not assuming they want to buy or meet anyone yet.",
+    not_inferred: normalizeNotInferred(plan.not_inferred, fallbackPlan.not_inferred),
     confidence: ["low", "medium", "high"].includes(plan.confidence)
       ? plan.confidence
       : "medium",
-    recommended_action_type: plan.recommended_action_type || "ask",
+    recommended_action_type: recommendedActionType,
     action_reason: cleanText(plan.action_reason),
     actions: normalizeActions(
       Array.isArray(plan.actions) ? plan.actions : fallbackPlan.actions,
-      plan.recommended_action_type || fallbackPlan.recommended_action_type
+      recommendedActionType
     ),
     after_session_actions: normalizeAfterSessionActions(
       Array.isArray(plan.after_session_actions)
@@ -463,11 +489,36 @@ function normalizePlan(plan, fallbackPlan) {
         : fallbackPlan.after_session_actions,
       fallbackPlan
     ),
-    memory_update: {
-      ...fallbackPlan.memory_update,
-      ...(plan.memory_update || {}),
-    },
+    memory_update: normalizeMemoryUpdate(
+      plan.memory_update,
+      fallbackPlan.memory_update,
+      fallbackPlan.should_act
+    ),
   };
+}
+
+function normalizeNotInferred(value, fallbackValue) {
+  const text = cleanText(value);
+  const lower = text.toLowerCase();
+  const looksLikeRestraint =
+    lower.startsWith("not ") ||
+    lower.startsWith("does not ") ||
+    lower.startsWith("do not ") ||
+    lower.includes(" not ") ||
+    lower.includes("n't ") ||
+    lower.includes("yet") ||
+    lower.includes("unknown");
+  const soundsLikeExplanation =
+    lower.includes("directly mentioned") ||
+    lower.includes("explicitly stated") ||
+    lower.includes("evidence shows") ||
+    lower.includes("the speaker said");
+
+  if (text && looksLikeRestraint && !soundsLikeExplanation) {
+    return text;
+  }
+
+  return cleanText(fallbackValue) || "Not assuming they want to buy or meet anyone yet.";
 }
 
 function ensureConcreteCue(plan, fallbackPlan) {
@@ -487,6 +538,17 @@ function ensureConcreteCue(plan, fallbackPlan) {
   if (soundsLikeMove) return cue;
 
   return `${cue} Ask what would make this worth fixing now.`;
+}
+
+function normalizeMemoryUpdate(memoryUpdate, fallbackMemoryUpdate, preferFallback) {
+  if (preferFallback) {
+    return fallbackMemoryUpdate;
+  }
+
+  return {
+    ...fallbackMemoryUpdate,
+    ...(memoryUpdate || {}),
+  };
 }
 
 function normalizeActions(actions, selectedType) {
@@ -556,15 +618,16 @@ function buildLocalPlan(userGoal, transcript, memoryQuotes) {
     return emptyPlan(userGoal);
   }
 
+  const selectedType = hasOwner && bridge ? "compare" : hasOwner ? "draft_later" : "ask";
   const actions = [
-    { label: "Ask", type: "ask", selected: !hasOwner },
+    { label: "Ask", type: "ask", selected: selectedType === "ask" },
     { label: "Save", type: "save", selected: false },
-    { label: "Draft later", type: "draft_later", selected: hasOwner },
+    { label: "Draft later", type: "draft_later", selected: selectedType === "draft_later" },
     { label: "Find public context", type: "find_public_context", selected: false },
   ];
 
   if (bridge) {
-    actions.splice(2, 0, { label: "Compare", type: "compare", selected: hasOwner });
+    actions.splice(2, 0, { label: "Compare", type: "compare", selected: selectedType === "compare" });
   }
 
   return {
@@ -577,7 +640,7 @@ function buildLocalPlan(userGoal, transcript, memoryQuotes) {
       ? "Not assuming they want to buy anything."
       : "They have not named who decides yet.",
     confidence: hasOwner || hasTiming ? "high" : "medium",
-    recommended_action_type: hasOwner ? "draft_later" : "ask",
+    recommended_action_type: selectedType,
     action_reason: hasOwner
       ? "Prepare follow-up after the conversation. Do not send anything without review."
       : "Ask one quiet question now. Leave email and profile work for after the conversation.",

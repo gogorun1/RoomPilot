@@ -78,6 +78,8 @@ let liveAudioContext = null;
 let liveAudioLevelTimer = null;
 let lastLiveAudioLevel = 0;
 let lastTranscriptAt = 0;
+let fallbackActivationTimer = null;
+let fallbackTranscriberActive = false;
 let fallbackRecorder = null;
 let fallbackSegmentTimer = null;
 let fallbackTranscribeInFlight = false;
@@ -410,8 +412,18 @@ function addLiveTranscript(text, options = {}) {
     });
   }
 
-  liveTranscriptLines.push({
+  addPlannerLine({
     speaker: "Heard",
+    text: normalized,
+  });
+}
+
+function addPlannerLine(line) {
+  const normalized = normalizeTranscript(line.text);
+  if (!normalized) return;
+
+  liveTranscriptLines.push({
+    speaker: line.speaker || "Heard",
     text: normalized,
     at: new Date().toISOString(),
   });
@@ -542,13 +554,19 @@ function renderPlannerPlan(plan) {
 
   setHidden(els.emptyCue, true);
   hasPlannerSuggestion = true;
-  setHidden(els.beat2Cue, true);
   setHidden(els.evidenceCapture, true);
-  setHidden(els.beat1Cue, false);
   setHidden(els.actionPalette, false);
   setHidden(els.nextCard, false);
 
-  updateCueFromPlan(plan);
+  if (plan.recommended_action_type === "compare") {
+    renderBridgeCueFromPlan(plan);
+  } else {
+    setHidden(els.beat2Cue, true);
+    setHidden(els.beat1Cue, false);
+    els.graphWrap.classList.remove("is-bridge");
+    updateCueFromPlan(plan);
+  }
+
   renderActionPalette(plan);
   renderActionQueue(plan.after_session_actions || []);
 
@@ -577,6 +595,47 @@ function updateCueFromPlan(plan) {
   confidence.textContent = `Confidence: ${plan.confidence || "medium"}`;
   confidence.classList.remove("low", "medium", "high");
   confidence.classList.add(plan.confidence || "medium");
+}
+
+function renderBridgeCueFromPlan(plan) {
+  const prior = seed.sessions.find((session) =>
+    /follow-up|follow up|event/i.test(session.quote || "")
+  );
+  const currentQuote = findCurrentBridgeQuote(plan);
+  const quoteBlocks = els.beat2Cue.querySelectorAll(".quote-block");
+  const cueText = els.beat2Cue.querySelector(".cue-block h2");
+  const notClaiming = els.beat2Cue.querySelector(".not-claiming");
+  const confidence = els.beat2Cue.querySelector(".confidence");
+
+  quoteBlocks[0].querySelector(".eyebrow").textContent = `${prior?.when || "Before"} / ${
+    prior?.person || "Someone"
+  }, ${prior?.company || "another session"}`;
+  quoteBlocks[0].querySelector("blockquote").textContent = quoteWithMarks(
+    prior?.quote || "We're evaluating tools for event follow-up this quarter."
+  );
+  quoteBlocks[1].querySelector(".eyebrow").textContent = "Right now / Today's speaker";
+  quoteBlocks[1].querySelector("blockquote").textContent = quoteWithMarks(currentQuote);
+
+  cueText.textContent = `${
+    prior?.person || "Someone"
+  } brought up the same follow-up problem. Ask if comparing notes would help.`;
+  notClaiming.textContent =
+    "This only links the two quotes. It does not assume they know each other.";
+  confidence.textContent = `Confidence: ${plan.confidence || "medium"}`;
+  confidence.classList.remove("low", "medium", "high");
+  confidence.classList.add(plan.confidence || "medium");
+
+  setHidden(els.beat1Cue, true);
+  setHidden(els.beat2Cue, false);
+  els.graphWrap.classList.add("is-bridge");
+}
+
+function findCurrentBridgeQuote(plan) {
+  const current = liveTranscriptLines.find((line) =>
+    /follow-up|follow up|event leads|leads/i.test(line.text || "")
+  );
+
+  return current?.text || plan.evidence_quote || "Our event leads are hard to follow up consistently.";
 }
 
 function renderActionPalette(plan) {
@@ -806,9 +865,15 @@ function startDemo() {
   showSession();
   startClock();
 
-  timeline.events.forEach((event) => schedule(event.type, event.at));
   timeline.transcript.forEach((line) => {
-    timers.push(window.setTimeout(() => addTranscript(line), line.at));
+    timers.push(
+      window.setTimeout(() => {
+        addTranscript(line);
+        if (line.speaker !== "You") {
+          addPlannerLine(line);
+        }
+      }, line.at)
+    );
   });
 }
 
@@ -888,6 +953,7 @@ async function startLiveMic() {
       throw new Error("Realtime session did not return a client secret");
     }
 
+    setLiveStatus("Opening microphone", "pending");
     const stream = await withTimeout(
       navigator.mediaDevices.getUserMedia({
         audio: {
@@ -927,26 +993,23 @@ async function startLiveMic() {
     });
     liveStream
       .getAudioTracks()
-      .forEach((track) =>
-        livePeer.addTransceiver(track, {
-          direction: "sendonly",
-          streams: [liveStream],
-        })
-      );
+      .forEach((track) => livePeer.addTrack(track, liveStream));
     liveDataChannel = livePeer.createDataChannel("oai-events");
     liveDataChannel.addEventListener("open", () => {
       lastTranscriptAt = Date.now();
       describeLiveState("Listening. Speak, then pause.");
+      scheduleFallbackTranscriber(liveStream);
     });
     liveDataChannel.addEventListener("message", handleRealtimeMessage);
     liveDataChannel.addEventListener("error", () => {
       setLiveStatus("Realtime event channel failed. Use Replay.", "error");
     });
     startAudioLevelMonitor(liveStream);
-    startFallbackTranscriber(liveStream);
 
     const offer = await livePeer.createOffer();
     await livePeer.setLocalDescription(offer);
+    await waitForIceGathering(livePeer, 3000);
+    setLiveStatus("Connecting live transcript", "pending");
 
     const sdpResponse = await withTimeout(
       fetch("https://api.openai.com/v1/realtime/calls", {
@@ -955,20 +1018,23 @@ async function startLiveMic() {
           Authorization: `Bearer ${ephemeralKey}`,
           "Content-Type": "application/sdp",
         },
-        body: offer.sdp,
+        body: livePeer.localDescription?.sdp || offer.sdp,
       }),
       12000,
       "Realtime connection took too long. Use Replay."
     );
 
     if (!sdpResponse.ok) {
-      throw new Error(await sdpResponse.text());
+      throw new Error(
+        await readResponseError(sdpResponse, "Realtime session failed")
+      );
     }
 
     await livePeer.setRemoteDescription({
       type: "answer",
       sdp: await sdpResponse.text(),
     });
+    scheduleFallbackTranscriber(liveStream);
 
     els.liveMic.textContent = "Stop live mic";
     describeLiveState("Connecting.");
@@ -1019,6 +1085,41 @@ function withTimeout(promise, duration, message) {
   });
 }
 
+function waitForIceGathering(peer, timeoutMs) {
+  if (peer.iceGatheringState === "complete") {
+    return Promise.resolve();
+  }
+
+  return new Promise((resolve) => {
+    const timeoutId = window.setTimeout(done, timeoutMs);
+
+    function done() {
+      window.clearTimeout(timeoutId);
+      peer.removeEventListener("icegatheringstatechange", handleStateChange);
+      resolve();
+    }
+
+    function handleStateChange() {
+      if (peer.iceGatheringState === "complete") {
+        done();
+      }
+    }
+
+    peer.addEventListener("icegatheringstatechange", handleStateChange);
+  });
+}
+
+async function readResponseError(response, fallbackMessage) {
+  const text = await response.text();
+
+  try {
+    const payload = JSON.parse(text);
+    return payload.error || fallbackMessage;
+  } catch {
+    return text || fallbackMessage;
+  }
+}
+
 function handleRealtimeMessage(message) {
   let event;
 
@@ -1030,6 +1131,11 @@ function handleRealtimeMessage(message) {
 
   console.debug("Realtime event", event.type, event);
 
+  if (event.type === "error") {
+    setLiveStatus(event.error?.message || "Realtime transcript failed.", "error");
+    return;
+  }
+
   if (!isTranscriptionEvent(event)) {
     return;
   }
@@ -1040,6 +1146,7 @@ function handleRealtimeMessage(message) {
 
   lastTranscriptAt = Date.now();
   setLiveStatus("Transcript received", "active");
+  stopFallbackTranscriber();
 
   if (event.type?.includes("delta")) {
     updateLiveDraft(transcript);
@@ -1092,10 +1199,29 @@ function updateLiveDraft(delta) {
   els.transcriptList.scrollTop = els.transcriptList.scrollHeight;
 }
 
-function startFallbackTranscriber(stream) {
+function scheduleFallbackTranscriber(stream) {
   stopFallbackTranscriber();
 
+  if (new URLSearchParams(window.location.search).get("liveOnly") === "1") {
+    console.info("Fallback transcriber disabled by liveOnly=1.");
+    return;
+  }
+
+  fallbackActivationTimer = window.setTimeout(() => {
+    if (!livePeer || !stream?.active || fallbackTranscriberActive) return;
+
+    if (Date.now() - lastTranscriptAt < 8500) return;
+
+    setLiveStatus("Live transcript delayed; using backup.", "pending");
+    startFallbackTranscriber(stream);
+  }, 9000);
+}
+
+function startFallbackTranscriber(stream) {
+  fallbackTranscriberActive = true;
+
   if (!window.MediaRecorder) {
+    fallbackTranscriberActive = false;
     console.warn("MediaRecorder is not available in this browser.");
     return;
   }
@@ -1104,7 +1230,7 @@ function startFallbackTranscriber(stream) {
 }
 
 function recordFallbackSegment(stream) {
-  if (!livePeer || !stream.active) return;
+  if (!livePeer || !fallbackTranscriberActive || !stream.active) return;
 
   const recorderOptions = getRecorderOptions();
   const chunks = [];
@@ -1123,7 +1249,9 @@ function recordFallbackSegment(stream) {
       fallbackRecorder = null;
     }
 
-    if (!livePeer || attemptId !== liveAttemptId) return;
+    if (!livePeer || !fallbackTranscriberActive || attemptId !== liveAttemptId) {
+      return;
+    }
 
     const blob = new Blob(chunks, {
       type: recorder.mimeType || recorderOptions.mimeType || "audio/webm",
@@ -1159,6 +1287,11 @@ function getRecorderOptions() {
 }
 
 function stopFallbackTranscriber() {
+  if (fallbackActivationTimer) {
+    window.clearTimeout(fallbackActivationTimer);
+    fallbackActivationTimer = null;
+  }
+
   if (fallbackSegmentTimer) {
     window.clearTimeout(fallbackSegmentTimer);
     fallbackSegmentTimer = null;
@@ -1169,12 +1302,13 @@ function stopFallbackTranscriber() {
   }
 
   fallbackRecorder = null;
+  fallbackTranscriberActive = false;
   fallbackTranscribeInFlight = false;
   fallbackPendingBlob = null;
 }
 
 async function transcribeFallbackChunk(blob) {
-  if (!livePeer) return;
+  if (!livePeer || !fallbackTranscriberActive) return;
 
   if (fallbackTranscribeInFlight) {
     fallbackPendingBlob = blob;
@@ -1216,7 +1350,9 @@ async function transcribeFallbackChunk(blob) {
       return;
     }
 
-    if (!livePeer || attemptId !== liveAttemptId) return;
+    if (!livePeer || !fallbackTranscriberActive || attemptId !== liveAttemptId) {
+      return;
+    }
 
     lastFallbackTranscript = text;
     lastTranscriptAt = Date.now();
@@ -1228,7 +1364,12 @@ async function transcribeFallbackChunk(blob) {
   } finally {
     fallbackTranscribeInFlight = false;
 
-    if (fallbackPendingBlob && livePeer && attemptId === liveAttemptId) {
+    if (
+      fallbackPendingBlob &&
+      livePeer &&
+      fallbackTranscriberActive &&
+      attemptId === liveAttemptId
+    ) {
       const pendingBlob = fallbackPendingBlob;
       fallbackPendingBlob = null;
       window.setTimeout(() => transcribeFallbackChunk(pendingBlob), 100);
