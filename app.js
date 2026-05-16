@@ -88,6 +88,11 @@ let fallbackSegmentTimer = null;
 let fallbackTranscribeInFlight = false;
 let fallbackPendingBlob = null;
 let lastFallbackTranscript = "";
+let diarizationRecorder = null;
+let diarizationSegmentTimer = null;
+let diarizationTranscribeInFlight = false;
+let diarizationPendingBlob = null;
+let lastDiarizationTranscript = "";
 let liveTranscriptLines = [];
 let plannerTimer = null;
 let plannerRequestId = 0;
@@ -240,7 +245,8 @@ const els = {
 const userGoal = "Find useful follow-up after Tech Europe.";
 
 function speakerDiarizationEnabled() {
-  return new URLSearchParams(window.location.search).get("speakerMode") !== "0";
+  const params = new URLSearchParams(window.location.search);
+  return params.get("speakerMode") === "1" || params.get("diarize") === "1";
 }
 
 async function loadData() {
@@ -450,10 +456,6 @@ function addLiveTranscriptSegment(segment) {
   const speaker = normalizeSpeakerLabel(segment.speaker);
 
   addTranscript({
-    speaker,
-    text,
-  });
-  addPlannerLine({
     speaker,
     text,
   });
@@ -1077,11 +1079,7 @@ async function startLiveMic() {
     liveDataChannel.addEventListener("open", () => {
       lastTranscriptAt = Date.now();
       describeLiveState("Listening. Speak, then pause.");
-      if (speakerDiarizationEnabled()) {
-        startFallbackTranscriber(liveStream);
-      } else {
-        scheduleFallbackTranscriber(liveStream);
-      }
+      scheduleFallbackTranscriber(liveStream);
     });
     liveDataChannel.addEventListener("message", handleRealtimeMessage);
     liveDataChannel.addEventListener("error", () => {
@@ -1118,10 +1116,10 @@ async function startLiveMic() {
       sdp: await sdpResponse.text(),
     });
 
+    scheduleFallbackTranscriber(liveStream);
+
     if (speakerDiarizationEnabled()) {
-      startFallbackTranscriber(liveStream);
-    } else {
-      scheduleFallbackTranscriber(liveStream);
+      startSpeakerDiarizer(liveStream);
     }
 
     els.liveMic.textContent = "Stop live mic";
@@ -1158,7 +1156,9 @@ function stopLiveMic() {
   lastLiveAudioLevel = 0;
   lastTranscriptAt = 0;
   lastFallbackTranscript = "";
+  lastDiarizationTranscript = "";
   stopFallbackTranscriber();
+  stopSpeakerDiarizer();
   els.liveMic.textContent = "Try live mic";
   setLiveStatus("Live mic idle");
 }
@@ -1250,10 +1250,6 @@ function handleRealtimeMessage(message) {
   }
 
   if (!isTranscriptionEvent(event)) {
-    return;
-  }
-
-  if (speakerDiarizationEnabled()) {
     return;
   }
 
@@ -1424,7 +1420,7 @@ function recordFallbackSegment(stream) {
     if (recorder.state === "recording") {
       recorder.stop();
     }
-  }, speakerDiarizationEnabled() ? speakerDiarizationSegmentMs : fallbackSegmentMs);
+  }, fallbackSegmentMs);
 }
 
 function getRecorderOptions() {
@@ -1453,6 +1449,79 @@ function stopFallbackTranscriber() {
   fallbackTranscriberActive = false;
   fallbackTranscribeInFlight = false;
   fallbackPendingBlob = null;
+}
+
+function startSpeakerDiarizer(stream) {
+  stopSpeakerDiarizer();
+
+  if (!window.MediaRecorder) {
+    console.warn("MediaRecorder is not available in this browser.");
+    return;
+  }
+
+  recordSpeakerDiarizationSegment(stream);
+}
+
+function recordSpeakerDiarizationSegment(stream) {
+  if (!livePeer || !stream.active) return;
+
+  const recorderOptions = getRecorderOptions();
+  const chunks = [];
+  const attemptId = liveAttemptId;
+  const recorder = new MediaRecorder(stream, recorderOptions);
+  diarizationRecorder = recorder;
+
+  recorder.addEventListener("dataavailable", (event) => {
+    if (event.data && event.data.size > 0) {
+      chunks.push(event.data);
+    }
+  });
+
+  recorder.addEventListener("stop", () => {
+    if (diarizationRecorder === recorder) {
+      diarizationRecorder = null;
+    }
+
+    if (!livePeer || attemptId !== liveAttemptId) return;
+
+    const blob = new Blob(chunks, {
+      type: recorder.mimeType || recorderOptions.mimeType || "audio/webm",
+    });
+
+    if (blob.size >= 1500) {
+      transcribeSpeakerDiarizationChunk(blob);
+    }
+
+    diarizationSegmentTimer = window.setTimeout(() => {
+      recordSpeakerDiarizationSegment(stream);
+    }, fallbackSegmentGapMs);
+  });
+
+  recorder.addEventListener("error", () => {
+    setLiveStatus("Speaker diarization recorder failed.", "error");
+  });
+
+  recorder.start();
+  diarizationSegmentTimer = window.setTimeout(() => {
+    if (recorder.state === "recording") {
+      recorder.stop();
+    }
+  }, speakerDiarizationSegmentMs);
+}
+
+function stopSpeakerDiarizer() {
+  if (diarizationSegmentTimer) {
+    window.clearTimeout(diarizationSegmentTimer);
+    diarizationSegmentTimer = null;
+  }
+
+  if (diarizationRecorder && diarizationRecorder.state !== "inactive") {
+    diarizationRecorder.stop();
+  }
+
+  diarizationRecorder = null;
+  diarizationTranscribeInFlight = false;
+  diarizationPendingBlob = null;
 }
 
 async function transcribeFallbackChunk(blob) {
@@ -1487,29 +1556,6 @@ async function transcribeFallbackChunk(blob) {
     }
 
     const text = normalizeTranscript(payload.text);
-    const segments = normalizeTranscriptionSegments(payload.segments);
-
-    if (segments.length > 0) {
-      const transcriptKey = segments
-        .map((segment) => `${segment.speaker}: ${segment.text}`)
-        .join("\n");
-
-      if (transcriptKey === lastFallbackTranscript) {
-        describeLiveState("Already captured that speaker turn.");
-        return;
-      }
-
-      if (!livePeer || !fallbackTranscriberActive || attemptId !== liveAttemptId) {
-        return;
-      }
-
-      lastFallbackTranscript = transcriptKey;
-      lastTranscriptAt = Date.now();
-      segments.forEach(addLiveTranscriptSegment);
-      setLiveStatus("Speaker transcript received", "active");
-      return;
-    }
-
     if (!text) {
       describeLiveState("No words in last chunk.");
       return;
@@ -1543,6 +1589,65 @@ async function transcribeFallbackChunk(blob) {
       const pendingBlob = fallbackPendingBlob;
       fallbackPendingBlob = null;
       window.setTimeout(() => transcribeFallbackChunk(pendingBlob), 100);
+    }
+  }
+}
+
+async function transcribeSpeakerDiarizationChunk(blob) {
+  if (!livePeer) return;
+
+  if (diarizationTranscribeInFlight) {
+    diarizationPendingBlob = blob;
+    return;
+  }
+
+  diarizationTranscribeInFlight = true;
+  const attemptId = liveAttemptId;
+  setLiveStatus("Checking speaker turns", "active");
+
+  try {
+    const response = await withTimeout(
+      fetch("/api/diarize", {
+        method: "POST",
+        headers: {
+          "Content-Type": normalizeAudioContentType(blob.type),
+        },
+        body: blob,
+      }),
+      18000,
+      "Speaker diarization took too long"
+    );
+    const payload = await response.json();
+
+    if (!response.ok) {
+      throw new Error(payload.error || "Speaker diarization failed");
+    }
+
+    const segments = normalizeTranscriptionSegments(payload.segments);
+
+    if (segments.length === 0) return;
+
+    const transcriptKey = segments
+      .map((segment) => `${segment.speaker}: ${segment.text}`)
+      .join("\n");
+
+    if (transcriptKey === lastDiarizationTranscript) return;
+
+    if (!livePeer || attemptId !== liveAttemptId) return;
+
+    lastDiarizationTranscript = transcriptKey;
+    segments.forEach(addLiveTranscriptSegment);
+    setLiveStatus("Speaker turns updated", "active");
+  } catch (error) {
+    console.warn(error);
+    setLiveStatus(error.message, "error");
+  } finally {
+    diarizationTranscribeInFlight = false;
+
+    if (diarizationPendingBlob && livePeer && attemptId === liveAttemptId) {
+      const pendingBlob = diarizationPendingBlob;
+      diarizationPendingBlob = null;
+      window.setTimeout(() => transcribeSpeakerDiarizationChunk(pendingBlob), 100);
     }
   }
 }

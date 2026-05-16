@@ -33,6 +33,11 @@ const server = createServer(async (request, response) => {
       return;
     }
 
+    if (url.pathname === "/api/diarize" && request.method === "POST") {
+      await transcribeAudioChunk(request, response, { diarize: true });
+      return;
+    }
+
     if (url.pathname === "/api/plan-actions" && request.method === "POST") {
       await planActions(request, response);
       return;
@@ -195,7 +200,7 @@ function getTranscriptionLanguage() {
   return null;
 }
 
-async function transcribeAudioChunk(request, response) {
+async function transcribeAudioChunk(request, response, options = {}) {
   loadEnvFile(".env");
   loadEnvFile(".env.local");
 
@@ -218,10 +223,13 @@ async function transcribeAudioChunk(request, response) {
     request.headers["content-type"] || "audio/webm"
   );
   const fileName = contentType === "audio/mp4" ? "roompilot.mp4" : "roompilot.webm";
+  const wantsDiarization = Boolean(options.diarize);
   const model =
-    process.env.OPENAI_AUDIO_TRANSCRIBE_MODEL ||
+    (wantsDiarization
+      ? process.env.OPENAI_DIARIZE_MODEL
+      : process.env.OPENAI_AUDIO_TRANSCRIBE_MODEL) ||
     process.env.OPENAI_TRANSCRIBE_MODEL ||
-    "gpt-4o-transcribe-diarize";
+    (wantsDiarization ? "gpt-4o-transcribe-diarize" : "gpt-4o-mini-transcribe");
 
   console.log("Transcribe chunk", {
     bytes: audio.length,
@@ -231,8 +239,6 @@ async function transcribeAudioChunk(request, response) {
 
   form.append("model", model);
   form.append("file", new Blob([audio], { type: contentType }), fileName);
-
-  const wantsDiarization = model.includes("diarize");
 
   if (wantsDiarization) {
     form.append("response_format", "diarized_json");
