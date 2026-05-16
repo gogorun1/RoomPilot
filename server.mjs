@@ -159,7 +159,7 @@ function buildRealtimeTranscriptionSession({ realtimeModel, transcriptModel }) {
           type: "server_vad",
           threshold: 0.5,
           prefix_padding_ms: 300,
-          silence_duration_ms: 500,
+          silence_duration_ms: 350,
         },
       },
     },
@@ -290,15 +290,6 @@ async function planActions(request, response) {
     return;
   }
 
-  if (signalGate.fast_path) {
-    sendJson(response, 200, {
-      ...fallbackPlan,
-      source: "pioneer_fast_path",
-      gate_reason: signalGate.reason,
-    });
-    return;
-  }
-
   if (!process.env.OPENAI_API_KEY) {
     sendJson(response, 200, {
       ...fallbackPlan,
@@ -312,10 +303,11 @@ async function planActions(request, response) {
     const model =
       process.env.OPENAI_PLANNER_MODEL ||
       process.env.OPENAI_MODEL ||
-      "gpt-4.1-mini";
+      "gpt-4.1-nano";
+    const plannerTimeoutMs = Number(process.env.OPENAI_PLANNER_TIMEOUT_MS || 6500);
     const upstream = await fetch("https://api.openai.com/v1/responses", {
       method: "POST",
-      signal: AbortSignal.timeout(7000),
+      signal: AbortSignal.timeout(plannerTimeoutMs),
       headers: {
         Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
         "Content-Type": "application/json",
@@ -359,6 +351,7 @@ async function planActions(request, response) {
             schema: plannerSchema(),
           },
         },
+        max_output_tokens: 260,
       }),
     });
 
@@ -382,6 +375,7 @@ async function planActions(request, response) {
       ...normalizePlan(plan, fallbackPlan),
       source: "openai",
       model,
+      gate_reason: signalGate.reason,
     });
   } catch (error) {
     console.warn("Planner exception", error);
@@ -402,14 +396,20 @@ function plannerSystemPrompt() {
     "RoomPilot only supports English, Chinese, and French. If the transcript is in another language, return should_act=false.",
     "The UI must feel like a thoughtful friend, not a sales tool.",
     "Never use sales-methodology words in user-visible strings.",
+    "Your job is only the live suggestion card. Keep the JSON short.",
+    "Do not reuse canned demo wording. Do not say follow-up problem unless the evidence quote literally concerns follow-up.",
+    "If the evidence points to a person, department, event, resource, LinkedIn profile, email, or next path, write the cue about clarifying that path.",
     "Every recommendation must cite one exact evidence quote from the transcript or memory quotes.",
     "If evidence is weak, set should_act=false and keep all user-visible suggestion fields empty.",
     "If should_act=true, live_cue must include a concrete next move, not just a summary.",
+    "live_cue should be one plain sentence, 10 to 22 words, with one natural question or action.",
+    "For live_cue, prefer what to ask while the person is still talking. Put reach-out, email, LinkedIn, and lookup work after the conversation.",
     "not_inferred must be a short non-empty sentence whenever should_act=true.",
+    "not_inferred must fit the evidence. Do not mention deals, buying, or meetings unless the quote raised that topic.",
     "Visible action labels must be short: Ask, Save, Compare, Draft later, Find public context, Reminder.",
     "Do not infer budget, title, intent to buy, or relationship unless directly stated.",
     "Actions are user-confirmed. Never say an email, social lookup, reminder, or intro has already happened.",
-    "Prefer one light live cue. Put email/social/profile/reminder work into after_session_actions.",
+    "Prefer one light live cue. Local code will fill action queues after your cue.",
   ].join(" ");
 }
 
@@ -425,9 +425,6 @@ function plannerSchema() {
       "confidence",
       "recommended_action_type",
       "action_reason",
-      "actions",
-      "after_session_actions",
-      "memory_update",
     ],
     properties: {
       should_act: { type: "boolean" },
@@ -448,43 +445,6 @@ function plannerSchema() {
         ],
       },
       action_reason: { type: "string" },
-      actions: {
-        type: "array",
-        items: {
-          type: "object",
-          additionalProperties: false,
-          required: ["label", "type", "selected"],
-          properties: {
-            label: { type: "string" },
-            type: { type: "string" },
-            selected: { type: "boolean" },
-          },
-        },
-      },
-      after_session_actions: {
-        type: "array",
-        items: {
-          type: "object",
-          additionalProperties: false,
-          required: ["title", "detail", "proof"],
-          properties: {
-            title: { type: "string" },
-            detail: { type: "string" },
-            proof: { type: "string" },
-          },
-        },
-      },
-      memory_update: {
-        type: "object",
-        additionalProperties: false,
-        required: ["what_they_said", "who_seems_closest", "when_it_matters", "still_unknown"],
-        properties: {
-          what_they_said: { type: "string" },
-          who_seems_closest: { type: "string" },
-          when_it_matters: { type: "string" },
-          still_unknown: { type: "string" },
-        },
-      },
     },
   };
 }
@@ -518,9 +478,19 @@ function normalizePlan(plan, fallbackPlan) {
     };
   }
 
-  const recommendedActionType = fallbackPlan.should_act
-    ? fallbackPlan.recommended_action_type
-    : plan.recommended_action_type || "ask";
+  const modelRecommendedActionType = [
+    "none",
+    "ask",
+    "save",
+    "compare",
+    "draft_later",
+    "find_public_context",
+    "reminder",
+  ].includes(plan.recommended_action_type)
+    ? plan.recommended_action_type
+    : "";
+  const recommendedActionType =
+    modelRecommendedActionType || fallbackPlan.recommended_action_type || "ask";
 
   return {
     should_act: Boolean(plan.should_act),
@@ -545,7 +515,7 @@ function normalizePlan(plan, fallbackPlan) {
     memory_update: normalizeMemoryUpdate(
       plan.memory_update,
       fallbackPlan.memory_update,
-      fallbackPlan.should_act
+      false
     ),
   };
 }
@@ -580,17 +550,30 @@ function ensureConcreteCue(plan, fallbackPlan) {
   if (!cue) return fallbackPlan.live_cue;
 
   const lower = cue.toLowerCase();
+  const evidence = cleanText(plan.evidence_quote || fallbackPlan.evidence_quote).toLowerCase();
   const soundsLikeMove =
     lower.includes("ask") ||
     lower.includes("save") ||
     lower.includes("draft") ||
     lower.includes("look up") ||
     lower.includes("follow up") ||
-    lower.includes("compare");
+    lower.includes("compare") ||
+    lower.includes("reach out") ||
+    lower.includes("clarify") ||
+    lower.includes("check") ||
+    lower.includes("find");
 
   if (soundsLikeMove) return cue;
 
-  return `${cue} Ask what would make this worth fixing now.`;
+  if (/hexa|hx|nick|负责人|部门|相关的项目|email|gmail|linkedin|领英|资源|resource|person/.test(evidence)) {
+    return `${cue} Ask who to talk to first and what to mention.`;
+  }
+
+  if (/会议|约|meeting|call|q[1-4]|q2|q3|之前|before/.test(evidence)) {
+    return `${cue} Ask who should be in the first meeting.`;
+  }
+
+  return `${cue} Ask what they have already tried.`;
 }
 
 function normalizeMemoryUpdate(memoryUpdate, fallbackMemoryUpdate, preferFallback) {
@@ -653,13 +636,12 @@ function normalizeAfterSessionActions(actions, fallbackPlan) {
 }
 
 function evaluateSignalGate(transcript, memoryQuotes) {
-  const latestLine = transcript
-    .slice()
-    .reverse()
-    .find((line) => cleanText(line.text) && !isUserLine(line));
-  const quote = cleanText(latestLine?.text);
+  const speakerLines = transcript
+    .map((line, index) => ({ ...line, index }))
+    .filter((line) => cleanText(line.text) && !isUserLine(line));
+  const latestLine = speakerLines[speakerLines.length - 1];
 
-  if (!quote) {
+  if (!speakerLines.length) {
     return {
       should_consider: false,
       fast_path: false,
@@ -669,7 +651,23 @@ function evaluateSignalGate(transcript, memoryQuotes) {
     };
   }
 
-  if (isLowValueQuote(quote)) {
+  const allText = transcript.map((line) => line.text || "").join(" ");
+  const candidates = speakerLines
+    .filter((line) => !isLowValueQuote(line.text))
+    .map((line) => {
+      const priorText = transcript
+        .filter((candidate) => candidate !== line)
+        .map((candidate) => candidate.text || "")
+        .join(" ");
+
+      return scoreSignalCandidate(cleanText(line.text), priorText, allText, memoryQuotes, line.index);
+    })
+    .filter((candidate) => candidate.language.supported)
+    .sort((a, b) => b.score - a.score || b.index - a.index);
+  const best = candidates[0];
+  const quote = best?.focus_quote || best?.quote || cleanText(latestLine?.text);
+
+  if (!best && isLowValueQuote(quote)) {
     return {
       should_consider: false,
       fast_path: false,
@@ -679,7 +677,7 @@ function evaluateSignalGate(transcript, memoryQuotes) {
     };
   }
 
-  const language = detectSupportedQuoteLanguage(quote);
+  const language = best?.language || detectSupportedQuoteLanguage(quote);
 
   if (!language.supported) {
     return {
@@ -691,14 +689,26 @@ function evaluateSignalGate(transcript, memoryQuotes) {
     };
   }
 
-  const priorText = transcript
-    .filter((line) => line !== latestLine)
-    .map((line) => line.text || "")
-    .join(" ");
-  const allText = transcript.map((line) => line.text || "").join(" ");
+  const score = best?.score || 0;
+  const shouldConsider = Boolean(best?.should_consider);
+
+  return {
+    should_consider: shouldConsider,
+    fast_path: shouldConsider && (score >= 3 || best.hasOwner || best.hasTiming || best.hasContactRequest),
+    focus_quote: quote,
+    score,
+    language: language.code,
+    reason: shouldConsider
+      ? "Speaker gave a quote-backed problem, owner, timing, contact step, or memory bridge."
+      : "No new quote-backed move; keep the UI quiet.",
+  };
+}
+
+function scoreSignalCandidate(quote, priorText, allText, memoryQuotes, index) {
   const lowerQuote = quote.toLowerCase();
   const lowerPrior = priorText.toLowerCase();
   const lowerAll = allText.toLowerCase();
+  const language = detectSupportedQuoteLanguage(quote);
   const hasProblem = hasAny(lowerQuote, [
     "hard",
     "difficult",
@@ -770,10 +780,25 @@ function evaluateSignalGate(transcript, memoryQuotes) {
     "apres l'evenement",
     "tableur",
   ]);
+  const hasProviderOrSolution = /vendor|provider|service provider|supplier|tool|solution|solve|service|服务商|供应商|工具|产品|服务|解决方案|解决.*问题|方案|prestataire|fournisseur|outil|solution|résoudre|resoudre/i.test(
+    quote
+  );
+  const hasMeetingStep = /meeting|call|book time|schedule|meet|discussion|talk further|会议|约会|约一个会议|约会议|约时间|再约|深入.*讨论|进一步.*聊|电话|réunion|reunion|rendez-vous|appel|discussion/i.test(
+    quote
+  );
+  const hasContactRequest = /gmail|e-mail|email|mail|contact|联系方式|邮箱|邮件|微信|电话|要一下|要.*联系方式|courriel|coordonnées|coordonnees/i.test(
+    quote
+  );
+  const hasResourcePath = /what'?s next|next step|resource|resources|expand|expansion|linkedin|linked in|下一步|拓展|扩展|资源|领英|黑客松|部门|相关的项目|行动节点|可以去跟|聊一下|参加/i.test(
+    quote
+  );
+  const hasNamedPerson = /\bnick\b|\bhexa\b|\bhx\b|负责人|负责的人|联系人|contact person/i.test(
+    quote
+  );
   const hasOwner = /head of|owns it|owner|responsible|has to deal|team owns|负责人|负责|谁管|谁来|responsable|s'en occupe|équipe croissance|equipe croissance/i.test(
     quote
   );
-  const hasTiming = /\bq[1-4]\b|\bt[1-4]\b|quarter|before|next month|this month|this week|deadline|push|季度|下个月|这周|本周|截止|之前|推进|trimestre|avant|mois prochain|ce mois|cette semaine|échéance|echeance|lancement/i.test(
+  const hasTiming = /\bq[1-4]\b|\bt[1-4]\b|quarter|before|next month|this month|this week|deadline|push|季度|下个月|这周|本周|截止|之前|推进|未来|trimestre|avant|mois prochain|ce mois|cette semaine|échéance|echeance|lancement/i.test(
     quote
   );
   const hasExplicitIntent = /\b(evaluating|looking for|needs?|wants?|trying to|we should|we have to)\b|正在看|想找|需要|想要|必须|得|évaluer|evaluer|cherchons|cherche|besoin|voulons|veulent|essayer|on doit|il faut/i.test(
@@ -788,10 +813,10 @@ function evaluateSignalGate(transcript, memoryQuotes) {
   const hasBridgeRequest = /compare notes|know someone|intro|introduce|connect us|talk to someone|认识.*人|介绍|对接|交流|比较|取经|comparer|échanger|echanger|présenter|presenter|mise en relation|connaissez quelqu'un|parler à quelqu'un|parler a quelqu'un/i.test(
     quote
   );
-  const hasCurrentProcess = /usually|process|workflow|spreadsheet|intern|manual|normally|现在|通常|流程|表格|实习生|手动|généralement|generalement|processus|tableur|stagiaire|manuel/i.test(
+  const hasCurrentProcess = /usually|process|workflow|spreadsheet|intern|manual|normally|现在|目前|通常|流程|表格|实习生|手动|généralement|generalement|processus|tableur|stagiaire|manuel/i.test(
     quote
   );
-  const hasPriorContext = /follow[- ]?up|lead|intro|event|跟进|线索|介绍|活动|会后|suivi|relance|prospect|événement|evenement|salon/i.test(
+  const hasPriorContext = /follow[- ]?up|lead|intro|event|meeting|solution|vendor|provider|contact|email|跟进|线索|介绍|活动|会后|会议|服务商|解决方案|解决.*问题|联系方式|邮箱|约时间|讨论|suivi|relance|prospect|événement|evenement|salon|réunion|reunion|solution|prestataire|contact/i.test(
     lowerAll
   );
   const hadPriorProblem = /hard|difficult|struggle|bad|broken|problem|nobody remembers|lose|lost|inconsistent|consistently|难|麻烦|问题|痛点|没人记得|丢|difficile|compliqué|complique|problème|probleme|personne ne se souvient|perdu|désorganisé|desorganise/i.test(
@@ -823,6 +848,11 @@ function evaluateSignalGate(transcript, memoryQuotes) {
   if (hasOwner && hasPriorContext) score += 2;
   if (hasTiming && hasPriorContext) score += 1;
   if (hasExplicitIntent && hasPriorContext) score += 1;
+  if (hasProviderOrSolution && (hasProblem || hasExplicitIntent || hasPriorContext)) score += 2;
+  if (hasResourcePath && (hasPriorContext || hasExplicitIntent || hasNamedPerson)) score += 3;
+  if (hasContactRequest && hasPriorContext) score += 3;
+  if (hasMeetingStep && (hasPriorContext || hasProblem || hasExplicitIntent)) score += 2;
+  if (hasNamedPerson && (hasContactRequest || hasMeetingStep || hasOwner)) score += 1;
   if (hasHesitation && hasPriorContext) score += 3;
   if (hasTriedSolution && hasPriorContext) score += 3;
   if (hasBridgeRequest && (hasPriorContext || hasMemoryBridge)) score += 3;
@@ -832,18 +862,85 @@ function evaluateSignalGate(transcript, memoryQuotes) {
   const shouldConsider =
     score >= 3 ||
     (hasOwner && hasTiming && hasPriorContext) ||
-    (hasBridgeRequest && hasMemoryBridge);
+    (hasBridgeRequest && hasMemoryBridge) ||
+    (hasResourcePath && (hasPriorContext || hasNamedPerson || hasContactRequest)) ||
+    (hasContactRequest && hasPriorContext) ||
+    (hasMeetingStep && hasExplicitIntent && hasPriorContext);
 
   return {
     should_consider: shouldConsider,
-    fast_path: shouldConsider && (score >= 3 || hasOwner || hasTiming),
-    focus_quote: quote,
+    quote,
+    focus_quote: pickFocusedEvidenceQuote(quote),
+    index,
     score,
-    language: language.code,
-    reason: shouldConsider
-      ? "Speaker gave a quote-backed problem, owner, timing, or memory bridge."
-      : "No new quote-backed move; keep the UI quiet.",
+    hasOwner,
+    hasTiming,
+    hasContactRequest,
+    language,
   };
+}
+
+function pickFocusedEvidenceQuote(text) {
+  const clean = cleanText(text);
+
+  if (clean.length <= 150) return clean;
+
+  const clauses = clean
+    .split(/(?<=[。！？!?])|[，,；;]|(?:\s+然后\s*)|(?:然后)/)
+    .map((part) => cleanText(part))
+    .filter(Boolean);
+
+  if (!clauses.length) return clean.slice(0, 150);
+
+  let bestIndex = 0;
+  let bestScore = -1;
+
+  clauses.forEach((clause, index) => {
+    const lower = clause.toLowerCase();
+    let score = 0;
+
+    if (/hexa|hx|nick|负责人|谁谁谁|部门|相关的项目|person|someone|contact/.test(lower)) score += 6;
+    if (/what'?s next|next step|下一步|拓展|扩展|资源|resource|expand|expansion/.test(lower)) score += 5;
+    if (/linkedin|linked in|领英|gmail|email|邮箱|联系方式/.test(lower)) score += 4;
+    if (/会议|约|聊一下|参加|行动节点|meeting|event|talk|join/.test(lower)) score += 3;
+    if (/问题|解决方案|服务商|solution|provider|problem/.test(lower)) score += 2;
+    if (clause.length < 6) score -= 2;
+
+    if (score > bestScore) {
+      bestScore = score;
+      bestIndex = index;
+    }
+  });
+
+  const selected = [clauses[bestIndex]];
+  const nextClause = clauses[bestIndex + 1];
+
+  if (
+    nextClause &&
+    selected.join("，").length + nextClause.length < 150 &&
+    /linkedin|领英|gmail|email|邮箱|联系方式|部门|相关的项目|资源|resource|行动节点/i.test(
+      nextClause
+    )
+  ) {
+    selected.push(nextClause);
+  }
+
+  return selected.join("，");
+}
+
+function pickContactEvidenceQuote(text) {
+  const clean = cleanText(text);
+  const clauses = clean
+    .split(/(?<=[。！？!?])|[，,；;]|(?:\s+然后\s*)|(?:然后)/)
+    .map((part) => cleanText(part))
+    .filter(Boolean);
+  const contactClauses = clauses.filter((clause) =>
+    /linkedin|linked in|领英|gmail|email|邮箱|联系方式|mail|contact/i.test(clause)
+  );
+
+  if (!contactClauses.length) return pickFocusedEvidenceQuote(clean);
+
+  return contactClauses.slice(0, 2).join("，");
 }
 
 function isUserLine(line) {
@@ -916,6 +1013,38 @@ function buildLocalPlan(userGoal, transcript, memoryQuotes, signalGate = null) {
   const text = transcript.map((line) => line.text || "").join(" ");
   const gate = signalGate || evaluateSignalGate(transcript, memoryQuotes);
   const quote = gate.focus_quote || "";
+  const contactQuote =
+    transcript
+      .slice()
+      .reverse()
+      .map((line) => cleanText(line.text))
+      .find((line) =>
+        /gmail|e-mail|email|mail|contact|联系方式|邮箱|邮件|微信|电话|要一下|要.*联系方式|courriel|coordonnées|coordonnees/i.test(
+          line
+        )
+      );
+  const contactEvidenceQuote = contactQuote ? pickContactEvidenceQuote(contactQuote) : quote;
+  const quoteHasContactRequest = /gmail|e-mail|email|mail|contact|联系方式|邮箱|邮件|微信|电话|要一下|要.*联系方式|courriel|coordonnées|coordonnees/i.test(
+    quote
+  );
+  const hasContactRequest = /gmail|e-mail|email|mail|contact|联系方式|邮箱|邮件|微信|电话|要一下|要.*联系方式|courriel|coordonnées|coordonnees/i.test(
+    text
+  );
+  const quoteHasResourcePath = /what'?s next|next step|resource|resources|expand|expansion|linkedin|linked in|下一步|拓展|扩展|资源|领英|黑客松|部门|相关的项目|行动节点|可以去跟|聊一下|参加/i.test(
+    quote
+  );
+  const hasResourcePath = /what'?s next|next step|resource|resources|expand|expansion|linkedin|linked in|下一步|拓展|扩展|资源|领英|黑客松|部门|相关的项目|行动节点|可以去跟|聊一下|参加/i.test(
+    text
+  );
+  const hasMeetingStep = /meeting|call|book time|schedule|meet|discussion|talk further|会议|约会|约一个会议|约会议|约时间|再约|深入.*讨论|进一步.*聊|电话|réunion|reunion|rendez-vous|appel|discussion/i.test(
+    text
+  );
+  const hasServiceNeed = /vendor|provider|service provider|supplier|tool|solution|solve|service|服务商|供应商|工具|产品|服务|解决方案|解决.*问题|方案|prestataire|fournisseur|outil|solution|résoudre|resoudre/i.test(
+    text
+  );
+  const hasEventFollowUpContext = /follow-up|follow up|lead|leads|intro|event|跟进|线索|介绍|对接|活动|会后|suivi|relance|prospect|événement|evenement|salon/i.test(
+    text
+  );
   const hasOwner = /head of growth|owns it|owner|responsible|负责人|增长负责人|负责|谁管|谁来|responsable|s'en occupe|équipe croissance|equipe croissance/i.test(
     text
   );
@@ -932,7 +1061,14 @@ function buildLocalPlan(userGoal, transcript, memoryQuotes, signalGate = null) {
     return emptyPlan(userGoal);
   }
 
-  const selectedType = hasOwner && bridge ? "compare" : hasOwner ? "draft_later" : "ask";
+  const selectedType =
+    hasContactRequest || hasMeetingStep
+      ? "ask"
+      : hasOwner && bridge && hasEventFollowUpContext
+        ? "compare"
+        : hasOwner
+          ? "draft_later"
+          : "ask";
   const actions = [
     { label: "Ask", type: "ask", selected: selectedType === "ask" },
     { label: "Save", type: "save", selected: false },
@@ -944,22 +1080,43 @@ function buildLocalPlan(userGoal, transcript, memoryQuotes, signalGate = null) {
     actions.splice(2, 0, { label: "Compare", type: "compare", selected: selectedType === "compare" });
   }
 
+  const liveCue = quoteHasResourcePath || hasResourcePath
+    ? "They pointed to a person or resource path. Ask who to talk to first and what to ask them."
+    : quoteHasContactRequest
+      ? "They named the missing contact detail. Ask for the right email before the thread gets loose."
+      : hasMeetingStep && hasTiming
+        ? "They named someone to reach and a Q2 window. Ask who should be in the first meeting."
+      : hasOwner
+        ? "They named who is closest to this and when it matters. Ask what they tried last time."
+        : hasServiceNeed
+          ? "They said the current problem still lacks a good solution. Ask what has already been tried."
+          : "They described a follow-up problem, but not who feels it most. Ask who has to deal with this after the event.";
+  const notInferred = quoteHasResourcePath || hasResourcePath
+    ? "Not assuming that person is the right contact yet."
+    : quoteHasContactRequest
+      ? "Not assuming this email is enough to start a deal."
+      : hasMeetingStep
+      ? "Not assuming they already agreed to meet."
+      : hasOwner
+        ? "Not assuming they want to buy anything."
+        : "They have not named who decides yet.";
+  const actionReason =
+    hasContactRequest || hasMeetingStep
+      ? "Ask the light next question now. Draft and lookup can wait until after the conversation."
+      : hasOwner
+        ? "Prepare follow-up after the conversation. Do not send anything without review."
+        : "Ask one quiet question now. Leave email and profile work for after the conversation.";
+
   return {
     should_act: true,
     evidence_quote: quote,
-    live_cue: hasOwner
-      ? "They named who is closest to this and when it matters. Ask what they tried last time."
-      : "They described a follow-up problem, but not who feels it most. Ask who has to deal with this after the event.",
-    not_inferred: hasOwner
-      ? "Not assuming they want to buy anything."
-      : "They have not named who decides yet.",
+    live_cue: liveCue,
+    not_inferred: notInferred,
     confidence: hasOwner || hasTiming ? "high" : "medium",
     recommended_action_type: selectedType,
-    action_reason: hasOwner
-      ? "Prepare follow-up after the conversation. Do not send anything without review."
-      : "Ask one quiet question now. Leave email and profile work for after the conversation.",
+    action_reason: actionReason,
     actions,
-    after_session_actions: hasOwner
+    after_session_actions: hasOwner || hasContactRequest || hasMeetingStep
       ? [
           {
             title: "Draft follow-up email",
@@ -968,15 +1125,17 @@ function buildLocalPlan(userGoal, transcript, memoryQuotes, signalGate = null) {
           },
           {
             title: "Find public profile",
-            detail: "Look up their company and role after the session.",
-            proof: "Head of Growth owns it.",
+            detail: hasContactRequest
+              ? "Use the name or email clue after the session. Do not open another tool mid-conversation."
+              : "Look up their company and role after the session.",
+            proof: hasContactRequest ? contactEvidenceQuote : quote,
           },
           ...(hasTiming
             ? [
                 {
                   title: "Create reminder",
-                  detail: "Follow up before their Q3 push.",
-                  proof: "They want something before the Q3 event push.",
+                  detail: "Follow up before the timing window they named.",
+                  proof: quote,
                 },
               ]
             : []),
@@ -989,10 +1148,26 @@ function buildLocalPlan(userGoal, transcript, memoryQuotes, signalGate = null) {
           },
         ],
     memory_update: {
-      what_they_said: "Event follow-up is hard to do consistently.",
-      who_seems_closest: hasOwner ? "Head of Growth" : "Not named yet.",
-      when_it_matters: hasTiming ? "Before Q3" : "Not named yet.",
-      still_unknown: hasOwner ? "What they already tried last time." : "Who handles this after the event.",
+      what_they_said: hasResourcePath
+        ? "They may know a person or resource path for the project."
+        : hasServiceNeed
+        ? "They have not found a good service provider or solution yet."
+        : "Event follow-up is hard to do consistently.",
+      who_seems_closest: hasOwner
+        ? hasContactRequest
+          ? "HX负责人 / Nick"
+          : "Person they named"
+        : hasResourcePath
+          ? "Hexa person / resource owner"
+        : "Not named yet.",
+      when_it_matters: hasTiming ? "Before Q2/Q3 window" : "Not named yet.",
+      still_unknown: hasResourcePath
+        ? "Which person or resource to follow first."
+        : hasContactRequest
+        ? "The right email and whether Nick can help."
+        : hasOwner
+          ? "What they already tried last time."
+          : "Who handles this after the event.",
     },
   };
 }

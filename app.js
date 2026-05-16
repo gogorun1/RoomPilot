@@ -73,6 +73,9 @@ let livePeer = null;
 let liveStream = null;
 let liveDataChannel = null;
 let liveDraftLine = null;
+let liveDraftPlannerTimer = null;
+let liveDraftPlannerText = "";
+let liveDraftPlannerLineActive = false;
 let liveAttemptId = 0;
 let liveAudioContext = null;
 let liveAudioLevelTimer = null;
@@ -90,6 +93,11 @@ let plannerTimer = null;
 let plannerRequestId = 0;
 let lastPlannedTranscript = "";
 let hasPlannerSuggestion = false;
+
+const fallbackActivationDelayMs = 3800;
+const fallbackStaleTranscriptMs = 2800;
+const fallbackSegmentMs = 1500;
+const fallbackSegmentGapMs = 120;
 
 const statusMessages = [
   "Thinking through your next move",
@@ -264,6 +272,11 @@ function clearTimers() {
     window.clearTimeout(plannerTimer);
     plannerTimer = null;
   }
+
+  if (liveDraftPlannerTimer) {
+    window.clearTimeout(liveDraftPlannerTimer);
+    liveDraftPlannerTimer = null;
+  }
 }
 
 function setStatusText(message) {
@@ -344,6 +357,8 @@ function resetDemo() {
   setSessionActive(false);
   els.graphWrap.classList.remove("is-live", "is-bridge");
   liveTranscriptLines = [];
+  liveDraftPlannerText = "";
+  liveDraftPlannerLineActive = false;
   plannerRequestId += 1;
   lastPlannedTranscript = "";
   hasPlannerSuggestion = false;
@@ -412,15 +427,53 @@ function addLiveTranscript(text, options = {}) {
     });
   }
 
-  addPlannerLine({
-    speaker: "Heard",
-    text: normalized,
-  });
+  addPlannerLine(
+    {
+      speaker: "Heard",
+      text: normalized,
+    },
+    {
+      finalizeDraft: options.render === false,
+    }
+  );
 }
 
-function addPlannerLine(line) {
+function addPlannerLine(line, options = {}) {
   const normalized = normalizeTranscript(line.text);
   if (!normalized) return;
+
+  const latestLine = liveTranscriptLines[liveTranscriptLines.length - 1];
+
+  if (options.finalizeDraft && liveDraftPlannerLineActive && latestLine?.isDraft) {
+    latestLine.text = normalized;
+    latestLine.at = new Date().toISOString();
+    latestLine.isDraft = false;
+    liveDraftPlannerLineActive = false;
+    liveDraftPlannerText = normalized;
+    queuePlanner();
+    return;
+  }
+
+  if (options.replaceDraft) {
+    if (liveDraftPlannerLineActive && latestLine?.isDraft) {
+      latestLine.text = normalized;
+      latestLine.at = new Date().toISOString();
+    } else {
+      liveTranscriptLines.push({
+        speaker: line.speaker || "Heard",
+        text: normalized,
+        at: new Date().toISOString(),
+        isDraft: true,
+      });
+      liveTranscriptLines = liveTranscriptLines.slice(-8);
+      liveDraftPlannerLineActive = true;
+    }
+
+    queuePlanner();
+    return;
+  }
+
+  if (latestLine?.text === normalized) return;
 
   liveTranscriptLines.push({
     speaker: line.speaker || "Heard",
@@ -483,7 +536,7 @@ function queuePlanner() {
     window.clearTimeout(plannerTimer);
   }
 
-  plannerTimer = window.setTimeout(runPlanner, 350);
+  plannerTimer = window.setTimeout(runPlanner, 180);
 }
 
 async function runPlanner() {
@@ -512,7 +565,7 @@ async function runPlanner() {
           })),
         }),
       }),
-      14000,
+      6500,
       "Planner took too long"
     );
     const plan = await response.json();
@@ -1070,6 +1123,8 @@ function stopLiveMic() {
 
   stopAudioLevelMonitor();
   liveDraftLine = null;
+  liveDraftPlannerText = "";
+  liveDraftPlannerLineActive = false;
   lastLiveAudioLevel = 0;
   lastTranscriptAt = 0;
   lastFallbackTranscript = "";
@@ -1174,14 +1229,15 @@ function handleRealtimeMessage(message) {
 
   lastTranscriptAt = Date.now();
   setLiveStatus("Transcript received", "active");
-  stopFallbackTranscriber();
-
   if (event.type?.includes("delta")) {
     updateLiveDraft(transcript);
     return;
   }
 
+  stopFallbackTranscriber();
+
   if (liveDraftLine) {
+    clearLiveDraftPlannerTimer();
     liveDraftLine.classList.remove("is-live-draft");
     liveDraftLine.querySelector("p").textContent = transcript;
     addLiveTranscript(transcript, { render: false });
@@ -1221,6 +1277,35 @@ function updateLiveDraft(delta) {
   const textElement = liveDraftLine.querySelector("p");
   textElement.textContent += delta;
   els.transcriptList.scrollTop = els.transcriptList.scrollHeight;
+  queueLiveDraftPlanner();
+}
+
+function clearLiveDraftPlannerTimer() {
+  if (liveDraftPlannerTimer) {
+    window.clearTimeout(liveDraftPlannerTimer);
+    liveDraftPlannerTimer = null;
+  }
+}
+
+function queueLiveDraftPlanner() {
+  clearLiveDraftPlannerTimer();
+
+  liveDraftPlannerTimer = window.setTimeout(() => {
+    const text = normalizeTranscript(liveDraftLine?.querySelector("p")?.textContent);
+
+    if (!text || text.length < 18 || text === liveDraftPlannerText) return;
+
+    liveDraftPlannerText = text;
+    addPlannerLine(
+      {
+        speaker: "Heard",
+        text,
+      },
+      {
+        replaceDraft: true,
+      }
+    );
+  }, 900);
 }
 
 function scheduleFallbackTranscriber(stream) {
@@ -1234,11 +1319,14 @@ function scheduleFallbackTranscriber(stream) {
   fallbackActivationTimer = window.setTimeout(() => {
     if (!livePeer || !stream?.active || fallbackTranscriberActive) return;
 
-    if (Date.now() - lastTranscriptAt < 8500) return;
+    if (Date.now() - lastTranscriptAt < fallbackStaleTranscriptMs) {
+      scheduleFallbackTranscriber(stream);
+      return;
+    }
 
     setLiveStatus("Live transcript delayed; using backup.", "pending");
     startFallbackTranscriber(stream);
-  }, 9000);
+  }, fallbackActivationDelayMs);
 }
 
 function startFallbackTranscriber(stream) {
@@ -1288,7 +1376,7 @@ function recordFallbackSegment(stream) {
 
     fallbackSegmentTimer = window.setTimeout(() => {
       recordFallbackSegment(stream);
-    }, 180);
+    }, fallbackSegmentGapMs);
   });
 
   recorder.addEventListener("error", () => {
@@ -1300,7 +1388,7 @@ function recordFallbackSegment(stream) {
     if (recorder.state === "recording") {
       recorder.stop();
     }
-  }, 3600);
+  }, fallbackSegmentMs);
 }
 
 function getRecorderOptions() {
