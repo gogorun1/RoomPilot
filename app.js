@@ -249,6 +249,10 @@ function speakerDiarizationEnabled() {
   return params.get("speakerMode") === "1" || params.get("diarize") === "1";
 }
 
+function liveTranscriptSpeakerLabel() {
+  return speakerDiarizationEnabled() ? "Speaker" : "Heard";
+}
+
 async function loadData() {
   try {
     const [seedResponse, timelineResponse] = await Promise.all([
@@ -430,17 +434,18 @@ function addTranscript(line) {
 function addLiveTranscript(text, options = {}) {
   const normalized = normalizeTranscript(text);
   if (!normalized) return;
+  const speaker = liveTranscriptSpeakerLabel();
 
   if (options.render !== false) {
     addTranscript({
-      speaker: "Heard",
+      speaker,
       text: normalized,
     });
   }
 
   addPlannerLine(
     {
-      speaker: "Heard",
+      speaker,
       text: normalized,
     },
     {
@@ -1298,9 +1303,10 @@ function updateLiveDraft(delta) {
     liveDraftLine = document.createElement("article");
     liveDraftLine.className = "transcript-line is-live-draft";
     liveDraftLine.innerHTML = `
-      <strong>Heard</strong>
+      <strong></strong>
       <p></p>
     `;
+    liveDraftLine.querySelector("strong").textContent = liveTranscriptSpeakerLabel();
     els.transcriptList.appendChild(liveDraftLine);
   }
 
@@ -1328,7 +1334,7 @@ function queueLiveDraftPlanner() {
     liveDraftPlannerText = text;
     addPlannerLine(
       {
-        speaker: "Heard",
+        speaker: liveTranscriptSpeakerLabel(),
         text,
       },
       {
