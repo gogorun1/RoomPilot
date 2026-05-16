@@ -992,14 +992,13 @@ async function startLiveMic() {
         setLiveStatus("Audio path failed. Use Replay.", "error");
       }
     });
+    livePeer.addEventListener("track", (event) => {
+      event.track.enabled = false;
+      event.track.stop();
+    });
     liveStream
       .getAudioTracks()
-      .forEach((track) =>
-        livePeer.addTransceiver(track, {
-          direction: "sendonly",
-          streams: [liveStream],
-        })
-      );
+      .forEach((track) => livePeer.addTrack(track, liveStream));
     liveDataChannel = livePeer.createDataChannel("oai-events");
     liveDataChannel.addEventListener("open", () => {
       lastTranscriptAt = Date.now();
@@ -1142,8 +1141,22 @@ function handleRealtimeMessage(message) {
     return;
   }
 
+  if (event.type === "input_audio_buffer.speech_started") {
+    describeLiveState("Heard speech. Waiting for transcript.");
+    return;
+  }
+
+  if (event.type === "input_audio_buffer.speech_stopped") {
+    describeLiveState("Speech ended. Transcribing.");
+    return;
+  }
+
+  if (event.type === "input_audio_buffer.committed") {
+    describeLiveState("Audio committed. Waiting for words.");
+    return;
+  }
+
   if (event.type?.startsWith("response.")) {
-    cancelAssistantResponse(event);
     return;
   }
 
@@ -1181,23 +1194,6 @@ function handleRealtimeMessage(message) {
 
 function isTranscriptionEvent(event) {
   return event.type?.startsWith("conversation.item.input_audio_transcription.");
-}
-
-function cancelAssistantResponse(event) {
-  const responseId = event.response?.id || event.response_id;
-
-  if (
-    event.type === "response.created" &&
-    responseId &&
-    liveDataChannel?.readyState === "open"
-  ) {
-    liveDataChannel.send(
-      JSON.stringify({
-        type: "response.cancel",
-        response_id: responseId,
-      })
-    );
-  }
 }
 
 function extractTranscriptText(event) {
